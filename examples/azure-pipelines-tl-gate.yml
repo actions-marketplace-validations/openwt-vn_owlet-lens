@@ -1,0 +1,62 @@
+# Azure DevOps pipeline for the TL gate button ("turn the AI on").
+#
+# With review.tlGate.enabled on, the automatic PR validation build (policy:
+# "AI code review", the one that runs `ai-review.js review` on every push) stops
+# short of the LLM and posts a "waiting for a team lead" note. A lead listed in
+# review.tlGate.leads opens the gate by queuing THIS pipeline from the PR's
+# Policies page. Azure Repos has no YAML trigger for a manual run, so the button
+# is a second build-validation policy:
+#
+#   1. "AI code review"            — Automatic, blocking (or Optional). Runs
+#      your own pipeline on every push to the PR's source branch.
+#   2. "AI code review — turn on (team lead)" — Manual, Optional. Runs the
+#      pipeline in this file, which is where AI_REVIEW_TL_PRESSED is set.
+#
+# Only the "Manual" trigger makes a policy runnable by hand, and only
+# "Optional" keeps a PR mergeable when the review it runs finds nothing (or when
+# a non-lead queues it by mistake). Both settings live in
+# Repos -> Branches -> <target branch> -> Branch policies; the full walkthrough
+# is in docs/tl-gate-azure-devops-setup.md.
+#
+# The pipeline declares AI_REVIEW_TL_PRESSED itself: Azure has no CI variable
+# that marks a manually queued build as manual in a way a push cannot imitate.
+# The gate reads the presser from Build.RequestedForId / Build.QueuedById.
+
+trigger: none
+pr: none
+
+variables:
+  # The press. Everything else about this build — the PR it reviews, who queued
+  # it — comes from the platform.
+  AI_REVIEW_TL_PRESSED: 'true'
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '22.x'
+
+  - script: npm ci
+    displayName: Install dependencies
+
+  # Exit codes: 0 = no activity, 1 = activity (findings posted) → success.
+  # 2-7 = config/auth/provider/LLM/partial errors, 8 = strict gate (a
+  # blocking-severity finding). The policy is Optional, so only the run's own
+  # status reports a failure; it never blocks the merge by itself. To enforce a
+  # hard block, add a TL approval rule in branch policies (#109).
+  #
+  # A press by someone who is not in review.tlGate.leads leaves the gate closed
+  # and exits 0 — that is a "no activity" run, not an error.
+  - script: node pipelines/scripts/ai-review.js review --provider=azure-devops
+    displayName: AI code review
+    env:
+      AI_REVIEW_TL_PRESSED: $(AI_REVIEW_TL_PRESSED)
+      # Not exported to scripts by default; the provider falls back to a PAT
+      # (AZURE_DEVOPS_TOKEN) if you would rather not pass the build token.
+      # A secret is not exported either, so the PAT needs its own line too:
+      #   AZURE_DEVOPS_TOKEN: $(AZURE_DEVOPS_TOKEN)
+      SYSTEM_ACCESSTOKEN: $(SYSTEM_ACCESSTOKEN)

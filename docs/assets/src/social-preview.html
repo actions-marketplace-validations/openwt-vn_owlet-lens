@@ -1,0 +1,29 @@
+<!doctype html><meta charset="utf-8"><title>social preview</title>
+<!-- GitHub social preview, 1280x640. Render: Chrome --headless --window-size=1280,640 --hide-scrollbars --screenshot=../social-preview.png social-preview.html -->
+<link rel="stylesheet" href="common.css">
+<style>
+body{width:1280px;height:640px;padding:70px 80px;display:grid;grid-template-columns:1fr 470px;gap:48px;align-items:center}
+h1{font-size:54px;margin:20px 0 18px}
+.lead{font-size:22px;max-width:560px}
+.chips{margin-top:30px}
+.chips{gap:8px}.chip{font-size:14px;padding:6px 12px 6px 7px;gap:7px}.chip img{width:24px;height:24px}
+.card{border-radius:18px}.msg p{font-size:17px}.body{gap:18px;padding:22px}
+.ok{font-size:16px}.av{width:40px;height:40px}
+</style>
+<body class="dark">
+<div>
+  <span class="eyebrow" style="font-size:13px">AI-assisted code review</span>
+  <h1>Code review that lives in your pull requests</h1>
+  <p class="lead">Findings as review threads. Replies understood. Fixed threads closed.</p>
+  <div class="chips">
+    <span class="chip"><img src="../logos/github.svg">GitHub</span><span class="chip"><img src="../logos/gitlab.svg">GitLab</span><span class="chip"><img src="../logos/bitbucket.svg">Bitbucket</span><span class="chip"><img src="../logos/azuredevops.svg">Azure DevOps</span>
+  </div>
+</div>
+<div class="card">
+  <div class="bar"><span class="dot" style="background:#f87171"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span><span class="file" style="font-size:13px">src/payments/refund.ts</span></div>
+  <div class="body">
+    <div class="msg"><span class="av" style="background:var(--red)">AI</span><div><div class="tags"><span class="tag sev">High</span><span class="tag">Bug</span></div><p>The refund amount is read before the balance check.</p></div></div>
+    <div class="msg"><span class="av" style="background:var(--ink)">Dev</span><div><p>Good catch. Moved the check above.</p></div></div>
+    <div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>Marked as fixed. Thread closed.</div>
+  </div>
+</div>

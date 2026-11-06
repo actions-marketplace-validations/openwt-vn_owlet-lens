@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>hero (vi)</title>
+<!-- Render: Chrome --headless --window-size=1600,760 --hide-scrollbars --screenshot=../hero.vi.png hero.vi.html -->
+<link rel="stylesheet" href="common.css">
+<style>
+body{width:1600px;height:760px;padding:84px 96px;display:grid;grid-template-columns:1fr 640px;gap:70px;align-items:center}
+h1{font-size:60px;text-wrap:balance}
+.lead{font-size:24px;max-width:720px}
+.works{margin-top:40px}
+.works b{display:block;font-size:15px;letter-spacing:.07em;text-transform:uppercase;color:#9ca3af;margin-bottom:14px}
+</style>
+<body class="dark">
+<div>
+  <span class="eyebrow">Review code với AI</span>
+  <h1>Review code ngay trong pull request của bạn</h1>
+  <p class="lead">Đọc từng thay đổi, đăng phát hiện thành thread review, hiểu phản hồi của lập trình viên và tự đóng những mục đã sửa.</p>
+  <div class="works"><b>Hỗ trợ</b>
+    <div class="chips">
+      <span class="chip"><img src="../logos/github.svg">GitHub</span>
+      <span class="chip"><img src="../logos/gitlab.svg">GitLab</span>
+      <span class="chip"><img src="../logos/bitbucket.svg">Bitbucket</span>
+      <span class="chip"><img src="../logos/azuredevops.svg">Azure DevOps</span>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="bar"><span class="dot" style="background:#f87171"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span><span class="file">src/payments/refund.ts</span></div>
+  <div class="body">
+    <div class="msg"><span class="av" style="background:var(--red)">AI</span><div><div class="tags"><span class="tag sev">Cao</span><span class="tag">Lỗi</span></div><p>Số tiền hoàn được đọc trước khi kiểm tra số dư, nên kiểm tra thất bại vẫn có thể phát sinh hoàn tiền.</p></div></div>
+    <div class="msg"><span class="av" style="background:var(--ink)">Dev</span><div><p>Chính xác. Đã chuyển bước kiểm tra lên trước lệnh hoàn tiền.</p></div></div>
+    <div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>Đã đánh dấu là đã sửa. Thread được đóng.</div>
+  </div>
+</div>

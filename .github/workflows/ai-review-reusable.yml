@@ -1,0 +1,267 @@
+name: Owlet Lens (reusable)
+
+# Reusable workflow for openwt-vn consumer repos.
+#
+# Usage in a consumer repo (e.g. `.github/workflows/ai-review.yml`):
+#
+#   name: Owlet Lens
+#   on:
+#     pull_request:
+#       types: [opened, synchronize, reopened]
+#     pull_request_review_comment:
+#       types: [created]
+#   jobs:
+#     ai-review:
+#       uses: openwt-vn/owlet-lens/.github/workflows/ai-review-reusable.yml@v3
+#       secrets: inherit
+#
+# The consuming repo needs: owlet-lens Actions access set to "accessible from
+# repositories in the organization" (it is private), and a runner matching `runner`.
+#
+# Required org/repo secrets (any one LLM key is enough; pick to match config):
+#   - DEEPSEEK_API_KEY (or ANTHROPIC_API_KEY / GEMINI_API_KEY / MODELSTACK_API_KEY)
+# Optional secret:
+#   - AI_REVIEW_RESOLVE_TOKEN  PAT with `repo` scope; lets the bot flip the
+#                              resolved flag on review threads. Falls back to
+#                              GITHUB_TOKEN (which cannot resolve threads but
+#                              still posts replies).
+#
+# v1.1 config keys (set in `ai-review.config.yaml`, not as workflow inputs):
+#   review.provider           anthropic | gemini | deepseek | modelstack (default anthropic).
+#                             Overridable per repo by the AI_REVIEW_LLM_PROVIDER
+#                             variable or the review-provider input.
+#   review.model              model name for the chosen provider
+#   review.codingStandardsPath
+#                             markdown file injected as the project coding-
+#                             standards block (soft-fall back to language
+#                             idiomatic placeholder when unreadable)
+#   review.contextPaths       string[] of markdown/text files concatenated as
+#                             `=== <path> ===` sections and prepended above
+#                             the review instructions. Use it for repo-wide
+#                             guidance (CLAUDE.md, docs/architecture.md, etc).
+#                             Unreadable entries warn + skip; non-string
+#                             entries raise ConfigError at load time.
+#   reply.provider / reply.model
+#                             (reply.provider overridable by the
+#                             AI_REPLY_LLM_PROVIDER variable or reply-provider)
+#                             reply-path LLM (default Claude Haiku). Also the
+#                             review-path reflection model, so callers should
+#                             set the `reply-model` input on the review jobs
+#                             too.
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: |
+          Runner labels for both `review` and `reply` jobs, encoded as a
+          JSON array. Default `'["self-hosted"]'`. Labelled example:
+          `'["self-hosted", "my-label"]'`. Array form is required even for
+          a single label so `fromJSON` can parse it uniformly.
+        required: false
+        type: string
+        default: '["self-hosted"]'
+      config-path:
+        description: Path to ai-review.config.yaml in the consumer repo
+        required: false
+        type: string
+        default: ai-review.config.yaml
+      review-model:
+        description: Override review model (e.g. deepseek-chat, claude-opus-4-7)
+        required: false
+        type: string
+      reply-model:
+        description: Override reply model. Also sets the review-path reflection model.
+        required: false
+        type: string
+      review-provider:
+        description: |
+          Override review LLM provider (anthropic | gemini | deepseek | modelstack).
+          Falls back to the caller repo variable AI_REVIEW_LLM_PROVIDER, then
+          config review.provider.
+        required: false
+        type: string
+      reply-provider:
+        description: |
+          Override reply LLM provider (also the review-path reflection provider).
+          Falls back to the caller repo variable AI_REPLY_LLM_PROVIDER, then
+          config reply.provider.
+        required: false
+        type: string
+      severity-threshold:
+        description: Override config severity threshold (low|medium|high|critical)
+        required: false
+        type: string
+      strict:
+        description: Exit non-zero (code 8) when blocking-severity findings posted
+        required: false
+        type: boolean
+        default: false
+      dry-run:
+        description: Print actions without posting
+        required: false
+        type: boolean
+        default: false
+      allowed-org:
+        description: Only run when github.repository_owner matches this value
+        required: false
+        type: string
+        default: openwt-vn
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+      DEEPSEEK_API_KEY:
+        required: false
+      GEMINI_API_KEY:
+        required: false
+      MODELSTACK_API_KEY:
+        required: false
+      AI_REVIEW_RESOLVE_TOKEN:
+        required: false
+
+jobs:
+  review:
+    if: ${{ inputs.allowed-org != '' && github.event_name == 'pull_request' && github.repository_owner == inputs.allowed-org }}
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: openwt-vn/owlet-lens@v3
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          deepseek-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          modelstack-api-key: ${{ secrets.MODELSTACK_API_KEY }}
+          resolve-token: ${{ secrets.AI_REVIEW_RESOLVE_TOKEN }}
+          subcommand: review
+          config-path: ${{ inputs.config-path }}
+          review-model: ${{ inputs.review-model }}
+          review-provider: ${{ inputs.review-provider || vars.AI_REVIEW_LLM_PROVIDER }}
+          # Reflection runs on the reply model (ai-review.js builds its LLM
+          # from config.reply), so review jobs must forward reply-model too —
+          # otherwise reflection silently falls back to config reply.model.
+          reply-model: ${{ inputs.reply-model }}
+          reply-provider: ${{ inputs.reply-provider || vars.AI_REPLY_LLM_PROVIDER }}
+          severity-threshold: ${{ inputs.severity-threshold }}
+          strict: ${{ inputs.strict }}
+          dry-run: ${{ inputs.dry-run }}
+
+  reply:
+    if: >-
+      ${{ inputs.allowed-org != ''
+          && github.repository_owner == inputs.allowed-org
+          && github.event_name == 'pull_request_review_comment'
+          && github.event.comment.user.type != 'Bot' }}
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    concurrency:
+      group: ai-review-reply-${{ github.event.pull_request.number || github.event.issue.number }}
+      # Coalesce overlapping comment events on the same PR. The reply job
+      # re-evaluates every active AI thread (not just the triggering comment's),
+      # so cancelling an older in-flight run loses no coverage — the surviving
+      # run scans all threads. Prevents duplicate verdicts when two comment
+      # events race past the hasVerdictAfter idempotency guard.
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: openwt-vn/owlet-lens@v3
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          deepseek-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          modelstack-api-key: ${{ secrets.MODELSTACK_API_KEY }}
+          resolve-token: ${{ secrets.AI_REVIEW_RESOLVE_TOKEN }}
+          subcommand: reply
+          config-path: ${{ inputs.config-path }}
+          reply-model: ${{ inputs.reply-model }}
+          reply-provider: ${{ inputs.reply-provider || vars.AI_REPLY_LLM_PROVIDER }}
+          dry-run: ${{ inputs.dry-run }}
+
+  review-on-demand:
+    if: >-
+      ${{ inputs.allowed-org != ''
+          && github.repository_owner == inputs.allowed-org
+          && github.event_name == 'issue_comment'
+          && github.event.issue.pull_request != null
+          && (github.event.comment.body == '/review' || startsWith(github.event.comment.body, '/review '))
+          && (github.event.comment.author_association == 'MEMBER'
+              || github.event.comment.author_association == 'OWNER'
+              || github.event.comment.author_association == 'COLLABORATOR') }}
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    concurrency:
+      group: ai-review-on-demand-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/merge
+          fetch-depth: 0
+      - uses: openwt-vn/owlet-lens@v3
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          deepseek-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          modelstack-api-key: ${{ secrets.MODELSTACK_API_KEY }}
+          resolve-token: ${{ secrets.AI_REVIEW_RESOLVE_TOKEN }}
+          subcommand: review
+          config-path: ${{ inputs.config-path }}
+          review-model: ${{ inputs.review-model }}
+          review-provider: ${{ inputs.review-provider || vars.AI_REVIEW_LLM_PROVIDER }}
+          # See the `review` job: reflection uses the reply model.
+          reply-model: ${{ inputs.reply-model }}
+          reply-provider: ${{ inputs.reply-provider || vars.AI_REPLY_LLM_PROVIDER }}
+          severity-threshold: ${{ inputs.severity-threshold }}
+          strict: ${{ inputs.strict }}
+          dry-run: ${{ inputs.dry-run }}
+        env:
+          GITHUB_PR_NUMBER: ${{ github.event.issue.number }}
+
+  # Self-learning. Runs on a schedule (or manual dispatch) in the consumer repo,
+  # NOT on PR events. Mines wontfix history from merged PRs, clusters recurring
+  # conventions, and opens a PR appending them to review.codingStandardsPath.
+  # Needs write perms: it creates a branch, commits the standards file, and
+  # opens the proposal PR.
+  #
+  # PR creation uses AI_REVIEW_RESOLVE_TOKEN (a repo-scope PAT) as github-token
+  # when set: orgs that disable "Allow GitHub Actions to create and approve pull
+  # requests" block the auto-issued GITHUB_TOKEN from opening PRs, but a PAT is
+  # exempt. Falls back to the default GITHUB_TOKEN when the secret is empty.
+  # NOTE: no explicit `permissions:` here. GitHub validates a reusable job's
+  # requested permissions against EVERY caller regardless of `if` gating, so
+  # hardcoding `contents: write` would break callers that grant only `read`
+  # (e.g. the review-only ai-review.yml). Instead this job inherits the caller's
+  # grant — the scheduled learn caller must grant contents:write +
+  # pull-requests:write; review/reply callers are unaffected (learn never runs
+  # for them).
+  learn:
+    if: >-
+      ${{ inputs.allowed-org != ''
+          && github.repository_owner == inputs.allowed-org
+          && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: openwt-vn/owlet-lens@v3
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          deepseek-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          modelstack-api-key: ${{ secrets.MODELSTACK_API_KEY }}
+          github-token: ${{ secrets.AI_REVIEW_RESOLVE_TOKEN || github.token }}
+          resolve-token: ${{ secrets.AI_REVIEW_RESOLVE_TOKEN }}
+          subcommand: learn
+          config-path: ${{ inputs.config-path }}
+          review-model: ${{ inputs.review-model }}
+          review-provider: ${{ inputs.review-provider || vars.AI_REVIEW_LLM_PROVIDER }}
+          dry-run: ${{ inputs.dry-run }}

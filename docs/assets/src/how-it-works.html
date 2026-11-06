@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>how it works</title>
+<!-- Render: Chrome --headless --window-size=1600,520 --hide-scrollbars --screenshot=../how-it-works.png how-it-works.html -->
+<link rel="stylesheet" href="common.css">
+<style>
+body{width:1600px;height:520px;background:#faf7f7;padding:56px 64px;display:flex;flex-direction:column;justify-content:center;gap:38px}
+h2{margin:0;font-size:38px;font-weight:800;letter-spacing:-.015em;color:var(--ink)}
+.row{display:flex;align-items:stretch;gap:0}
+.step{flex:1;background:#fff;border:1px solid var(--line);border-radius:18px;padding:28px 28px 26px;display:flex;flex-direction:column;gap:14px}
+.arrow{flex:none;width:44px;display:grid;place-items:center;color:var(--red)}
+.arrow svg{width:30px;height:30px}
+.n{width:44px;height:44px;border-radius:50%;background:var(--red);color:#fff;display:grid;place-items:center;font-weight:800;font-size:20px}
+.step h3{margin:0;font-size:23px;font-weight:800;color:var(--ink);line-height:1.25}
+.step p{margin:0;font-size:18px;line-height:1.5;color:var(--mut)}
+.demo{margin-top:auto;padding-top:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:15px;font-weight:700}
+.pill{border-radius:99px;padding:5px 14px}
+.red{background:var(--soft);color:#9f2a1d}.grey{background:#f3f4f6;color:var(--mut)}.green{background:#ecfdf3;color:#166534;border:1px solid #bbf7d0}
+.av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
+</style>
+<body>
+<h2>How it works</h2>
+<div class="row">
+  <div class="step"><span class="n">1</span><h3>Open a pull request</h3><p>The review starts on its own. Pushes that change nothing are skipped.</p>
+    <div class="demo"><span class="pill grey">pull request #42</span><span class="pill grey">opened</span></div></div>
+  <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></div>
+  <div class="step"><span class="n">2</span><h3>Findings become threads</h3><p>Each finding sits on the line it is about, with a severity and a suggested fix.</p>
+    <div class="demo"><span class="pill red">High</span><span class="pill grey">Bug</span><span class="pill grey">line 28</span></div></div>
+  <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></div>
+  <div class="step"><span class="n">3</span><h3>Reply in the thread</h3><p>The tool reads the answer and decides: fixed, will not fix, or still open.</p>
+    <div class="demo"><span class="av" style="background:var(--ink)">Dev</span><span class="pill grey">"Moved the check above."</span></div></div>
+  <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></div>
+  <div class="step"><span class="n">4</span><h3>Threads close themselves</h3><p>Fixed threads close, regressions reopen. The list always matches the code.</p>
+    <div class="demo"><span class="pill green">Marked as fixed</span></div></div>
+</div>

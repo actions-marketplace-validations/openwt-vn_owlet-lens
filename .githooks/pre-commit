@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Rebuilds dist/ when action-bundled sources change, then stages the result.
+# CI enforces that dist/ matches source; this prevents the "dist is out of date"
+# failure that blocks PRs.
+#
+# Trigger paths (anything ncc bundles via action-entry.js):
+#   - pipelines/scripts/**
+#   - package.json
+#   - package-lock.json
+#
+# Bypass: SKIP_DIST_BUILD=1 git commit ...
+set -euo pipefail
+
+if [[ "${SKIP_DIST_BUILD:-0}" == "1" ]]; then
+  exit 0
+fi
+
+# Files staged for this commit (added/modified/renamed/copied).
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# Quick exit if nothing source-related changed.
+if ! echo "$staged" | grep -qE '^(pipelines/scripts/|package(-lock)?\.json$)'; then
+  exit 0
+fi
+
+# Skip if the commit ONLY touches dist/ (e.g., manual `build:` commit).
+if ! echo "$staged" | grep -qvE '^(dist/|\.githooks/)'; then
+  exit 0
+fi
+
+echo "[pre-commit] source changed — rebuilding dist/"
+npm run build --silent
+
+# Stage ALL rebuilt artifacts — the action bundle (dist/index.js,
+# dist/licenses.txt) AND the CLI bundle (dist/cli/**). Staging only the action
+# bundle left a stale dist/cli/index.js in commits and failed CI's dist gate.
+# `git add` no-ops cleanly if nothing changed.
+git add dist/ 2>/dev/null || true
+
+# Re-check: if dist/ is now dirty but unstaged, something went sideways.
+if ! git diff --cached --quiet -- dist/; then
+  echo "[pre-commit] dist/ staged"
+fi

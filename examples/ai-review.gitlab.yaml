@@ -1,0 +1,26 @@
+# GitLab review provider config example.
+#
+# Copy to `ai-review.config.yaml` (or point --config at it) and pick the LLM
+# provider/model your team uses. Everything GitLab-specific is documented in
+# docs/gitlab-setup.md.
+provider: gitlab
+
+auth:
+  # Private Token: a project or group access token with the `api` scope.
+  # Required for writes (posting notes, resolving discussions, learn). Leave
+  # commented to resolve it from the GITLAB_TOKEN env var instead.
+  # gitlabToken: ${GITLAB_TOKEN}
+  anthropicKey: ${ANTHROPIC_API_KEY}
+
+# Self-hosted GitLab only — leave commented for gitlab.com. On CI,
+# CI_SERVER_URL is used automatically when this is unset.
+# gitlab:
+#   baseUrl: https://gitlab.example.com
+
+review:
+  provider: anthropic
+  model: claude-opus-4-7
+
+reply:
+  provider: anthropic
+  model: claude-haiku-4-5-20251001

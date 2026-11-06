@@ -1,0 +1,76 @@
+# This repository's own review configuration, used by .github/workflows/ai-review.yml (config-path).
+# It uses a ModelStack gateway and model aliases of this organisation. For a neutral starting point
+# for your own repository see examples/ai-review.config.yaml.
+
+provider: github
+
+auth:
+  token: ${GITHUB_TOKEN}
+  modelstackKey: ${MODELSTACK_API_KEY}
+
+paths:
+  include:
+    - "pipelines/**"
+    - "lib/**"
+    - "docs/**"
+  exclude:
+    - "**/*.test.*"
+    - "**/dist/**"
+    - "**/node_modules/**"
+
+review:
+  provider: modelstack
+  model: deepseek-v4-pro
+  fallbackModels:
+    - claude-sonnet-4-6
+    - gpt-5.5
+  maxFindings: 25
+  maxFileBytes: 100000   # bypass any file whose diff exceeds 100000 bytes (~98 KB) before sending to the LLM (null = no cap)
+  severityThreshold: medium
+  codingStandardsPath: ./examples/coding-standards-nestjs-react.md
+  contextPaths:
+    - ./CLAUDE.md
+  summary:
+    mode: append   # 'sticky' (single comment, updated in place) | 'append' (new comment per run)
+
+reply:
+  provider: modelstack
+  evaluator: llm
+  # Doubles as the review-path reflection model (lib/reflection-filter.js).
+  # Must be a name ModelStack resolves; an unknown name fails every call with
+  # a non-retryable 400 and reflection then fail-opens (keeps everything).
+  model: deepseek-v4-flash-0731
+  fallbackModels:
+    - claude-haiku-4-5
+
+# ModelStack fronts arbitrary upstream models, so the built-in pricing table is
+# empty for the `modelstack` provider — without these overrides cost reports as
+# $0 and logs a warning. Rates below are family-list-price APPROXIMATIONS (per
+# MTok); adjust to whatever ModelStack actually bills for these models.
+pricing:
+  claude-opus-4-7:
+    inputPerMTok: 5
+    outputPerMTok: 25
+  claude-haiku-4-5:
+    inputPerMTok: 1
+    outputPerMTok: 5
+  # Active models + their failover sets (approx — verify vs ModelStack bill).
+  deepseek-v4-pro:
+    inputPerMTok: 0.30
+    outputPerMTok: 1.20
+  claude-sonnet-4-6:
+    inputPerMTok: 3
+    outputPerMTok: 15
+  gpt-5.5:
+    inputPerMTok: 5
+    outputPerMTok: 15
+  deepseek-v4-flash-0731:
+    inputPerMTok: 0.14
+    outputPerMTok: 0.28
+  # Only active via the vars.AI_REVIEW_MODEL override.
+  glm-5.3-flash:
+    inputPerMTok: 0.14
+    outputPerMTok: 0.28
+
+markers:
+  prefix: ai-review

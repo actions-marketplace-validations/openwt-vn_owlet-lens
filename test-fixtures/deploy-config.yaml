@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-tls-secret
+data:
+  tls.key: |
+    -----BEGIN RSA PRIVATE KEY-----
+    MIIFAKEKEYNOTREALBUTLOOKSLIKEONEabcdefghijklmnopqrst
+    uvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij
+    klmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ01
+    -----END RSA PRIVATE KEY-----
+  api-token: "ghp_FAKE1234567890abcdefghijklmnopqrstuvwx"

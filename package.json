@@ -1,0 +1,38 @@
+{
+  "name": "owlet-lens",
+  "version": "3.2.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Owlet Lens: AI code review for pull requests on GitHub, GitLab, Bitbucket Cloud and Azure DevOps",
+  "bin": {
+    "owlet-lens": "pipelines/scripts/ai-review.js",
+    "ai-review": "pipelines/scripts/ai-review.js"
+  },
+  "engines": {
+    "node": ">=20.10.0"
+  },
+  "scripts": {
+    "review": "node pipelines/scripts/ai-review.js review",
+    "reply": "node pipelines/scripts/ai-review.js reply",
+    "learn": "node pipelines/scripts/ai-review.js learn",
+    "init": "node pipelines/scripts/ai-review.js init",
+    "test": "find pipelines/scripts/__tests__ -name '*.test.js' -print0 | xargs -0 node --test --test-reporter=spec",
+    "test:coverage": "find pipelines/scripts/__tests__ -name '*.test.js' -print0 | xargs -0 node --test --experimental-test-coverage --test-reporter=tap",
+    "coverage:gate": "npm run test:coverage | node pipelines/scripts/coverage-gate.js",
+    "build:action": "ncc build pipelines/scripts/action-entry.js -o dist --minify --license licenses.txt",
+    "build:cli": "ncc build pipelines/scripts/ai-review.js -o dist/cli --minify",
+    "build": "npm run build:action && npm run build:cli",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
+  },
+  "dependencies": {
+    "@actions/cache": "^4.1.0",
+    "@octokit/rest": "^21.0.2",
+    "js-yaml": "^4.1.0",
+    "minimatch": "^10.2.6",
+    "undici": "^5.29.0"
+  },
+  "devDependencies": {
+    "@actions/core": "^1.11.1",
+    "@vercel/ncc": "^0.38.4"
+  }
+}

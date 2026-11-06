@@ -1,0 +1,120 @@
+# Bitbucket Pipelines — runs the AI code review automatically on every pull
+# request update (i.e. whenever the PR's source branch gets new commits).
+#
+# Required repository variables (Repo settings → Repository variables, mark
+# both "Secured"):
+#   AI_REVIEW_TOKEN   — a Repository (or Workspace) Access Token with scope
+#                       pullrequest:write. That is also what the resolve call
+#                       needs (POST .../pullrequests/{id}/comments/{id}/resolve);
+#                       no extra scope is required to flip the resolved flag.
+#                       The provider reads this token.
+#                       (Named AI_REVIEW_TOKEN, not BITBUCKET_TOKEN, because the
+#                       BITBUCKET_ prefix is reserved for built-in variables.)
+#   DEEPSEEK_API_KEY  — DeepSeek API key (the review/reply LLM in
+#                       ai-review.config.yaml).
+#
+# Auto-provided by Bitbucket in pull-request pipelines — no setup needed:
+#   BITBUCKET_WORKSPACE, BITBUCKET_REPO_SLUG, BITBUCKET_PR_ID, BITBUCKET_PIPELINE_UUID
+#
+# TL gate: when review.tlGate.enabled is true in ai-review.config.yaml, the
+# review step stops short of the LLM until a team lead named in
+# review.tlGate.leads presses the "Turn AI review on (team lead)" button on the
+# pipeline. Keep that step — it is what opens the gate. See
+# docs/tl-gate-bitbucket-setup.md.
+
+image: node:20
+
+definitions:
+  caches:
+    npm: ~/.npm
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: AI code review
+          caches:
+            - npm
+          script:
+            - npm ci
+            - |
+              # Run reply then review on every PR update. Bitbucket Pipelines has
+              # no PR-comment trigger, so `reply` is re-run here on each push — it
+              # re-evaluates any threads a developer has replied to since last time
+              # and patches finding state (fixed/wontfix/active) in the thread
+              # markers. Running it FIRST means the subsequent `review` reconciles
+              # against fresh dev verdicts instead of stale ones.
+              #
+              # Exit codes are meaningful, not build failures:
+              #   0 = no activity, 1 = activity (findings/replies posted) → success.
+              #   8 = strict gate (a blocking-severity finding) → fail the build.
+              #   2-7 = config/auth/provider/LLM/partial errors → fail the build.
+              # Both passes always run; the build fails with the last "real" code.
+              fail=0
+              for cmd in reply review; do
+                set +e
+                node pipelines/scripts/ai-review.js "$cmd" --provider=bitbucket
+                code=$?
+                set -e
+                if [ "$code" -eq 0 ] || [ "$code" -eq 1 ]; then
+                  echo "AI $cmd completed (exit $code)"
+                else
+                  echo "AI $cmd failed or gated (exit $code)"
+                  fail="$code"
+                fi
+              done
+              exit "$fail"
+      # TL gate (review.tlGate.enabled): with the gate on, the `review` pass above
+      # parks and posts a "waiting for a team lead" note until one of the leads in
+      # `review.tlGate.leads` presses this button. Pressing it re-runs the whole
+      # pipeline with AI_REVIEW_TL_PRESSED=true, so the review pass sees the press
+      # and reviews the PR (and keeps reviewing every later push).
+      - step:
+          name: Turn AI review on (team lead)
+          caches:
+            - npm
+          trigger: manual
+          script:
+            - npm ci
+            - export AI_REVIEW_TL_PRESSED=true
+            - |
+              # Exit codes: 0 = no activity, 1 = activity → success.
+              # 2-7 = config/auth/provider/LLM/partial errors, 8 = strict gate.
+              # A press by someone who is not a configured lead leaves the gate
+              # closed, which exits 0 — that is a "no activity" run, not an error.
+              set +e
+              node pipelines/scripts/ai-review.js review --provider=bitbucket
+              code=$?
+              set -e
+              if [ "$code" -eq 0 ] || [ "$code" -eq 1 ]; then
+                echo "AI review completed (exit $code)"
+              else
+                echo "AI review failed or gated (exit $code)"
+                exit "$code"
+              fi
+
+  custom:
+    learn:
+      # Biweekly self-learning run. Wire to a Schedule in
+      # Repo settings -> Pipelines -> Schedules (every 2 weeks, branch: develop).
+      - step:
+          name: AI learn (propose standards updates)
+          caches:
+            - npm
+          script:
+            - npm ci
+            - |
+              # Exit codes are meaningful, not build failures:
+              #   0 = no proposal, 1 = PR proposed → success.
+              #   2-5 = config/auth/provider/LLM errors → fail the build.
+              # `learn` opens a standards PR by design, so exit 1 is a green run.
+              set +e
+              node pipelines/scripts/ai-review.js learn --provider=bitbucket
+              code=$?
+              set -e
+              if [ "$code" -eq 0 ] || [ "$code" -eq 1 ]; then
+                echo "AI learn completed (exit $code)"
+              else
+                echo "AI learn failed (exit $code)"
+                exit "$code"
+              fi

@@ -1,0 +1,118 @@
+# AI code review for GitLab merge requests.
+#
+# Drop this file into a project as `.gitlab-ci.yml`, or include it from the
+# reviewer project:
+#
+#   include:
+#     - project: '<group>/owlet-lens'
+#       ref: main
+#       file: '/examples/gitlab-ci.yml'
+#
+# The reviewer CLI lives in its own project. Point AI_REVIEW_REPO at that
+# project's clone URL and pin AI_REVIEW_REF. CI_JOB_TOKEN can clone a private
+# reviewer project when this project is listed under the reviewer's
+# Settings -> CI/CD -> Job token permissions (allowlist).
+#
+# Required CI/CD variables (Settings -> CI/CD -> Variables):
+#   ANTHROPIC_API_KEY (or DEEPSEEK_API_KEY / GEMINI_API_KEY / MODELSTACK_API_KEY)
+#     - the key for whichever LLM `review.provider` / `reply.provider` use.
+#   GITLAB_TOKEN (required)
+#     - project/group access token with `api` scope. The auto-provided
+#       CI_JOB_TOKEN is read-only for the APIs this tool writes to (no posting
+#       notes, no branch/commit/MR creation), so it only clones the reviewer;
+#       GITLAB_TOKEN is required for review, reply, and learn. See
+#       docs/gitlab-setup.md.
+#
+# Auto-provided by GitLab on merge request pipelines (no setup): CI_PROJECT_ID,
+# CI_MERGE_REQUEST_IID, CI_SERVER_URL, CI_JOB_TOKEN.
+#
+# Review and reply both run on every MR pipeline. Reply runs first so the
+# review pass reconciles against fresh developer verdicts (GitLab has no
+# PR-comment trigger, so reply is re-evaluated on each push — the same
+# ordering the Bitbucket pipeline uses).
+#
+# TL gate: with review.tlGate.enabled on, owlet-lens-review parks and posts a
+# "waiting for a team lead" note until a lead in review.tlGate.leads runs the
+# owlet-lens-review-tl job. Keep that job — it is what opens the gate. See
+# docs/tl-gate-gitlab-setup.md.
+
+stages:
+  - test
+  - deploy
+
+.ai-review-base:
+  image: node:20-alpine
+  variables:
+    AI_REVIEW_REPO: "https://gitlab.com/your-group/owlet-lens.git"
+    AI_REVIEW_REF: "main"
+    AI_REVIEW_TOOL_DIR: ".ai-review-tool"
+  before_script:
+    - apk add --no-cache git
+    - TOOL_URL=$(printf '%s' "$AI_REVIEW_REPO" | sed "/@/! s#^https://#https://gitlab-ci-token:${CI_JOB_TOKEN}@#")
+    - git clone --depth 1 --branch "$AI_REVIEW_REF" "$TOOL_URL" "$AI_REVIEW_TOOL_DIR"
+    - npm --prefix "$AI_REVIEW_TOOL_DIR" ci
+
+# Exit codes: 0 = no activity, 1 = activity (findings/replies posted) → the job
+# succeeds. Errors (2-7) and the strict gate (8) fail the job. The subcommand
+# comes from "$AI_REVIEW_CMD" set per job.
+.ai-review-run:
+  script: &ai-review-run
+    - |
+      set +e
+      node "$AI_REVIEW_TOOL_DIR/pipelines/scripts/ai-review.js" "$AI_REVIEW_CMD" --provider=gitlab
+      code=$?
+      set -e
+      if [ "$code" -eq 0 ] || [ "$code" -eq 1 ]; then
+        echo "ai-review $AI_REVIEW_CMD completed (exit $code)"
+      else
+        echo "ai-review $AI_REVIEW_CMD failed or gated (exit $code)"
+        exit "$code"
+      fi
+
+owlet-lens-reply:
+  extends: .ai-review-base
+  stage: test
+  # Best-effort context refresh: allow it to fail so review still runs and the
+  # MR gets findings (mirrors the Bitbucket pipeline, which always runs both).
+  allow_failure: true
+  variables:
+    AI_REVIEW_CMD: reply
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script: *ai-review-run
+
+owlet-lens-review:
+  extends: .ai-review-base
+  stage: test
+  variables:
+    AI_REVIEW_CMD: review
+  needs:
+    - owlet-lens-reply
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script: *ai-review-run
+
+owlet-lens-review-tl:
+  extends: .ai-review-base
+  stage: test
+  # TL gate (review.tlGate.enabled): manual job, so a team lead listed in
+  # review.tlGate.leads presses "Run" in the MR pipeline widget. GitLab sets
+  # CI_JOB_MANUAL=true for that run, which is what the gate reads. allow_failure
+  # keeps the gate-off and denied runs (exit 0) green. Nothing needs this job —
+  # it is a sibling of owlet-lens-review, not a dependency of it.
+  when: manual
+  allow_failure: true
+  variables:
+    AI_REVIEW_CMD: review
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script: *ai-review-run
+
+owlet-lens-learn:
+  extends: .ai-review-base
+  stage: deploy
+  variables:
+    AI_REVIEW_CMD: learn
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script: *ai-review-run

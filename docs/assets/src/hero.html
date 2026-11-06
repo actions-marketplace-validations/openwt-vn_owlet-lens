@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>hero</title>
+<!-- Render: Chrome --headless --window-size=1600,760 --hide-scrollbars --screenshot=../hero.png hero.html -->
+<link rel="stylesheet" href="common.css">
+<style>
+body{width:1600px;height:760px;padding:84px 96px;display:grid;grid-template-columns:1fr 640px;gap:70px;align-items:center}
+h1{font-size:66px}
+.lead{font-size:25px;max-width:700px}
+.works{margin-top:40px}
+.works b{display:block;font-size:15px;letter-spacing:.07em;text-transform:uppercase;color:#9ca3af;margin-bottom:14px}
+</style>
+<body class="dark">
+<div>
+  <span class="eyebrow">AI-assisted code review</span>
+  <h1>Code review that lives in your pull requests</h1>
+  <p class="lead">Reads every change, posts clear findings as review threads, understands developer replies and closes what is fixed.</p>
+  <div class="works"><b>Works with</b>
+    <div class="chips">
+      <span class="chip"><img src="../logos/github.svg">GitHub</span>
+      <span class="chip"><img src="../logos/gitlab.svg">GitLab</span>
+      <span class="chip"><img src="../logos/bitbucket.svg">Bitbucket</span>
+      <span class="chip"><img src="../logos/azuredevops.svg">Azure DevOps</span>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="bar"><span class="dot" style="background:#f87171"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span><span class="file">src/payments/refund.ts</span></div>
+  <div class="body">
+    <div class="msg"><span class="av" style="background:var(--red)">AI</span><div><div class="tags"><span class="tag sev">High</span><span class="tag">Bug</span></div><p>The refund amount is read before the balance check, so a failed check can still issue a refund.</p></div></div>
+    <div class="msg"><span class="av" style="background:var(--ink)">Dev</span><div><p>Good catch. Moved the check above the refund call.</p></div></div>
+    <div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>Marked as fixed. Thread closed.</div>
+  </div>
+</div>

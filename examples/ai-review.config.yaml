@@ -1,0 +1,29 @@
+# Example ai-review.config.yaml: copy it to the root of your repository and adjust.
+# Every key is documented in docs/config.md.
+provider: github
+
+auth:
+  token: ${GITHUB_TOKEN}
+  anthropicKey: ${ANTHROPIC_API_KEY}
+
+paths:
+  exclude:
+    - "**/dist/**"
+    - "**/node_modules/**"
+    - "**/*.lock"
+
+review:
+  provider: anthropic
+  model: claude-opus-4-7
+  maxFindings: 25
+  severityThreshold: medium        # low | medium | high | critical
+  # codingStandardsPath: ./CODING_STANDARDS.md   # optional; also the file `learn` appends rules to
+  # contextPaths:                                # optional files sent to the model as background
+  #   - ./CLAUDE.md
+  summary:
+    mode: sticky                   # sticky: one comment updated in place | append: a new comment per run
+
+reply:
+  provider: anthropic
+  evaluator: llm
+  model: claude-haiku-4-5-20251001

@@ -1,0 +1,21 @@
+# Secret scanning configuration (gitleaks). CI runs it on every push and pull request.
+title = "owlet-lens"
+
+[extend]
+useDefault = true
+
+# These files test the secret redactor, so they contain secret-shaped strings on purpose.
+# Every value is fake (for example `ghp_FAKE...`, `MIIFAKEKEYNOTREAL...`, `sk-test-...`).
+[[allowlists]]
+description = "Intentionally fake secrets used to test the redactor"
+paths = [
+  '''pipelines/scripts/__tests__/diff-secret-redact\.test\.js''',
+  '''pipelines/scripts/__tests__/import-tracer\.test\.js''',
+  '''test-fixtures/deploy-config\.yaml''',
+]
+
+# dist/ is minified build output that only the release commits on tags contain.
+# Names such as `maskKey` in the bundled dependencies look like keys but are not.
+[[allowlists]]
+description = "Minified release bundle"
+paths = ['''^dist/.*''']

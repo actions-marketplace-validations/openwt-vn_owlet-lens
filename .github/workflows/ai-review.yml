@@ -1,0 +1,151 @@
+name: Owlet Lens (dogfood)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  schedule:
+    - cron: '0 3 1,15 * *'   # biweekly: 1st and 15th of month, 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print proposed standards without opening a PR'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  review:
+    # A fork gets no secrets, so there is nothing to review with; skip it.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    # The runner comes from the repository variable CI_RUNNER (`self-hosted` while the repository is
+    # private). Without it the job runs on GitHub-hosted ubuntu-latest, which is what a public repository
+    # should use. This is not a security boundary: a pull request from a fork brings its own workflow
+    # file and can change this line.
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci && npm run build
+      - uses: ./
+        with:
+          config-path: .github/ai-review.dogfood.config.yaml
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          modelstack-api-key: ${{ secrets.MODELSTACK_API_KEY }}
+          resolve-token: ${{ secrets.AI_REVIEW_RESOLVE_TOKEN }}
+          subcommand: review
+          review-model: ${{ vars.AI_REVIEW_MODEL }}
+          review-provider: ${{ vars.AI_REVIEW_LLM_PROVIDER }}
+          # Reflection runs on the reply model (ai-review.js builds its LLM
+          # from config.reply), so review jobs must pass it too — otherwise
+          # reflection silently falls back to config reply.model.
+          reply-model: ${{ vars.AI_REPLY_MODEL }}
+          reply-provider: ${{ vars.AI_REPLY_LLM_PROVIDER }}
+
+  reply:
+    if: >-
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && !startsWith(github.event.comment.body, '/'))
+      || (github.event_name == 'pull_request_review_comment' && github.event.comment.user.type != 'Bot'
+          && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    concurrency:
+      group: ai-review-reply-${{ github.event.pull_request.number || github.event.issue.number }}
+      # Coalesce overlapping comment events on the same PR. The reply job
+      # re-evaluates every active AI thread (not just the triggering comment's),
+      # so cancelling an older in-flight run loses no coverage — the surviving
+      # run scans all threads. Prevents duplicate verdicts when two comment
+      # events race past the hasVerdictAfter idempotency guard.
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci && npm run build
+      - uses: ./
+        with:
+          config-path: .github/ai-review.dogfood.config.yaml
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          modelstack-api-key: ${{ secrets.MODELSTACK_API_KEY }}
+          resolve-token: ${{ secrets.AI_REVIEW_RESOLVE_TOKEN }}
+          subcommand: reply
+          reply-model: ${{ vars.AI_REPLY_MODEL }}
+          reply-provider: ${{ vars.AI_REPLY_LLM_PROVIDER }}
+
+  review-on-demand:
+    if: >-
+      github.event_name == 'issue_comment'
+      && github.event.issue.pull_request != null
+      && (github.event.comment.body == '/review' || startsWith(github.event.comment.body, '/review '))
+      && (github.event.comment.author_association == 'MEMBER'
+          || github.event.comment.author_association == 'OWNER'
+          || github.event.comment.author_association == 'COLLABORATOR')
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    concurrency:
+      group: ai-review-on-demand-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/merge
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci && npm run build
+      - uses: ./
+        with:
+          config-path: .github/ai-review.dogfood.config.yaml
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          modelstack-api-key: ${{ secrets.MODELSTACK_API_KEY }}
+          resolve-token: ${{ secrets.AI_REVIEW_RESOLVE_TOKEN }}
+          subcommand: review
+          review-model: ${{ vars.AI_REVIEW_MODEL }}
+          review-provider: ${{ vars.AI_REVIEW_LLM_PROVIDER }}
+          # See the `review` job: reflection uses the reply model.
+          reply-model: ${{ vars.AI_REPLY_MODEL }}
+          reply-provider: ${{ vars.AI_REPLY_LLM_PROVIDER }}
+        env:
+          GITHUB_PR_NUMBER: ${{ github.event.issue.number }}
+
+  learn:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci && npm run build
+      - uses: ./
+        with:
+          config-path: .github/ai-review.dogfood.config.yaml
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          modelstack-api-key: ${{ secrets.MODELSTACK_API_KEY }}
+          github-token: ${{ secrets.AI_REVIEW_RESOLVE_TOKEN || github.token }}
+          resolve-token: ${{ secrets.AI_REVIEW_RESOLVE_TOKEN }}
+          subcommand: learn
+          review-model: ${{ vars.AI_REVIEW_MODEL }}
+          review-provider: ${{ vars.AI_REVIEW_LLM_PROVIDER }}
+          dry-run: ${{ inputs.dry_run || false }}

@@ -1,0 +1,16 @@
+review:
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  detectBreakingChanges: true
+  auditLogPath: ./test-fixtures/audit.jsonl
+  exportWebhookUrl: https://webhook.site/test-placeholder
+  testFileSeverityThreshold: high
+  noiseCategories: [style, naming]
+  skipGeneratedFiles: true
+  maxFindings: 20
+  latencyWarnMs: 5000
+  codingStandardsPath: ./examples/coding-standards-nestjs-react.md
+
+reply:
+  provider: anthropic
+  model: claude-haiku-4-5-20251001

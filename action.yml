@@ -1,0 +1,75 @@
+name: 'Owlet Lens'
+description: 'Claude-powered AI code review for GitHub PRs'
+author: 'openwt-vn'
+branding:
+  icon: 'eye'
+  color: 'purple'
+inputs:
+  anthropic-api-key:
+    description: 'Anthropic API key (required if anthropic provider active for review or reply)'
+    required: false
+  deepseek-api-key:
+    description: 'DeepSeek API key (required if deepseek provider active for review or reply)'
+    required: false
+  gemini-api-key:
+    description: 'Gemini API key (required if gemini provider active for review or reply)'
+    required: false
+  modelstack-api-key:
+    description: 'ModelStack API key (required if modelstack provider active for review or reply)'
+    required: false
+  github-token:
+    description: 'GitHub token'
+    required: false
+    default: ${{ github.token }}
+  resolve-token:
+    description: 'PAT with repo scope used only for resolveReviewThread/unresolveReviewThread mutations. Optional; falls back to github-token. Expected to have repo scope: without it the thread stays open on screen and the per-run resolve retry warns every time.'
+    required: false
+  pr-number:
+    description: 'PR number to review (defaults from event context if omitted)'
+    required: false
+  repository:
+    description: 'owner/repo (defaults from GITHUB_REPOSITORY)'
+    required: false
+  subcommand:
+    description: 'review, reply, or learn'
+    required: false
+    default: 'review'
+  config-path:
+    description: 'Path to ai-review.config.yaml'
+    required: false
+    default: 'ai-review.config.yaml'
+  provider:
+    description: 'Provider name'
+    required: false
+    default: 'github'
+  dry-run:
+    description: 'Print actions without posting'
+    required: false
+    default: 'false'
+  severity-threshold:
+    description: 'Override config severity threshold'
+    required: false
+  review-model:
+    description: 'Override review model'
+    required: false
+  reply-model:
+    description: 'Override reply model. Also sets the review-path reflection model (review runs without this input fall back to config reply.model).'
+    required: false
+  review-provider:
+    description: 'Override review LLM provider (anthropic | gemini | deepseek | modelstack). Sets AI_REVIEW_LLM_PROVIDER; empty keeps config review.provider.'
+    required: false
+  reply-provider:
+    description: 'Override reply LLM provider (anthropic | gemini | deepseek | modelstack). Sets AI_REPLY_LLM_PROVIDER; empty keeps config reply.provider. Also the review-path reflection provider.'
+    required: false
+  strict:
+    description: 'Exit non-zero (code 8) when blocking-severity findings posted. Threshold is severity-threshold.'
+    required: false
+    default: 'false'
+outputs:
+  exit-code:
+    description: 'CLI exit code'
+  strict-triggered:
+    description: 'true if strict gate fired (exit 8)'
+runs:
+  using: 'node24'
+  main: 'dist/index.js'
