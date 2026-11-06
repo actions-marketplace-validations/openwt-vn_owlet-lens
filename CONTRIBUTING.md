@@ -69,7 +69,7 @@ git tag vX.Y.Z && git push origin main vX.Y.Z
 
 The Release workflow builds `dist/`, commits it to the tag, and force-moves the major tag (`v1`). Consumers use `openwt-vn/owlet-lens@v1`. When the major changes, update the `@vN` references in `README.md` and `.github/workflows/ai-review-reusable.yml`.
 
-CI and the AI review of this repository take their runner from the repository variable `CI_RUNNER` (`self-hosted` while the repository is private) and default to GitHub-hosted `ubuntu-latest`, which is what a public repository should use. That line is not a security boundary: a pull request from a fork brings its own workflow file and can change it. Keep runner groups closed to public repositories and require approval for workflows from outside contributors. The Release job always uses `ubuntu-latest` (it has write access).
+CI and the AI review of this repository take their runner from the repository variable `CI_RUNNER` (`self-hosted` while the repository is private) and default to GitHub-hosted `ubuntu-latest`, which is what a public repository should use. That line is not a security boundary: a pull request from a fork brings its own workflow file and can change it. Keep runner groups closed to public repositories and require approval for workflows from outside contributors. The Release job follows the same variable. It has write access, so it must run on GitHub-hosted runners once the repository is public: unset `CI_RUNNER` before that.
 
 ## 7. License of contributions
 

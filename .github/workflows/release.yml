@@ -6,9 +6,10 @@ on:
 
 jobs:
   release:
-    # GitHub-hosted on purpose: PR jobs run branch code on the persistent
-    # self-hosted runner, and this job pushes tags and main with write access.
-    runs-on: ubuntu-latest
+    # Takes the runner from CI_RUNNER like the other workflows. This job pushes tags and main with
+    # write access, so it must run on GitHub-hosted runners (the default) as soon as the repository is
+    # public: unset CI_RUNNER then. While the repository is private, only people we trust can run it.
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     permissions:
       contents: write
     steps:
