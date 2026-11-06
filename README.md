@@ -56,7 +56,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # the review needs full history to diff
-      - uses: openwt-vn/owlet-lens@v3
+      - uses: openwt-vn/owlet-lens@v1
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           subcommand: review
@@ -69,7 +69,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: openwt-vn/owlet-lens@v3
+      - uses: openwt-vn/owlet-lens@v1
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           subcommand: reply
@@ -111,7 +111,7 @@ A model name your provider does not accept makes every call fail. Fallback model
 
 - **Pull requests from forks get no secrets.** GitHub does not pass repository secrets to workflows triggered by a fork, so the review will not run for external contributors. Do not work around this with `pull_request_target` unless you understand the risk of running untrusted code with your secrets.
 - **Cost.** A typical pull request takes about two model calls, and a push that does not change the reviewed content is skipped. The real cost depends on the model and the size of the diff; the summary comment reports it.
-- **Pinning.** `@v3` follows the latest 3.x release. For reproducible runs pin an exact tag such as `@v3.1.0`, or a full commit SHA.
+- **Pinning.** `@v1` follows the latest 1.x release. For reproducible runs pin an exact tag such as `@v1.0.0`, or a full commit SHA.
 
 ## Privacy and security
 

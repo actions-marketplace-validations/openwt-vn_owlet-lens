@@ -61,7 +61,7 @@ node pipelines/scripts/ai-review.js review --strict
 Action:
 
 ```yaml
-- uses: openwt-vn/owlet-lens@v3
+- uses: openwt-vn/owlet-lens@v1
   with:
     anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
     subcommand: review
@@ -130,8 +130,8 @@ Cache key shape: `ai-review-state-v1-<repoId>-pr-<prNum>-<runId>`. Restore uses 
 
 ## Pinning
 
-- `@v3` — auto-update within v3.x.x (recommended)
-- `@v3.0.0` — pin exact version
+- `@v1` — auto-update within v1.x.x (recommended)
+- `@v1.0.0` — pin exact version
 
 ## Limitations / token permissions
 
@@ -146,7 +146,7 @@ It does mean the thread stays open on screen. Each `review` run retries the reso
 To enable the UI flag flip, supply a PAT with `repo` scope:
 
 ```yaml
-- uses: openwt-vn/owlet-lens@v3
+- uses: openwt-vn/owlet-lens@v1
   with:
     anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
     github-token: ${{ secrets.AI_REVIEW_PAT }}  # PAT with repo scope

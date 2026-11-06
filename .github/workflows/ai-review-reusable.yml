@@ -12,7 +12,7 @@ name: Owlet Lens (reusable)
 #       types: [created]
 #   jobs:
 #     ai-review:
-#       uses: openwt-vn/owlet-lens/.github/workflows/ai-review-reusable.yml@v3
+#       uses: openwt-vn/owlet-lens/.github/workflows/ai-review-reusable.yml@v1
 #       secrets: inherit
 #
 # The consuming repo needs: owlet-lens Actions access set to "accessible from
@@ -130,7 +130,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: openwt-vn/owlet-lens@v3
+      - uses: openwt-vn/owlet-lens@v1
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           deepseek-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -170,7 +170,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
-      - uses: openwt-vn/owlet-lens@v3
+      - uses: openwt-vn/owlet-lens@v1
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           deepseek-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -205,7 +205,7 @@ jobs:
         with:
           ref: refs/pull/${{ github.event.issue.number }}/merge
           fetch-depth: 0
-      - uses: openwt-vn/owlet-lens@v3
+      - uses: openwt-vn/owlet-lens@v1
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           deepseek-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -252,7 +252,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: openwt-vn/owlet-lens@v3
+      - uses: openwt-vn/owlet-lens@v1
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           deepseek-api-key: ${{ secrets.DEEPSEEK_API_KEY }}

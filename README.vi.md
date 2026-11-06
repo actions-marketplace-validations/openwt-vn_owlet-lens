@@ -56,7 +56,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # review cần toàn bộ lịch sử để so sánh diff
-      - uses: openwt-vn/owlet-lens@v3
+      - uses: openwt-vn/owlet-lens@v1
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           subcommand: review
@@ -69,7 +69,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: openwt-vn/owlet-lens@v3
+      - uses: openwt-vn/owlet-lens@v1
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           subcommand: reply
@@ -111,7 +111,7 @@ Tên model mà nhà cung cấp không chấp nhận sẽ làm mọi lần gọi 
 
 - **Pull request từ fork không nhận được secret.** GitHub không truyền secret của repo cho workflow được kích hoạt từ fork, nên review sẽ không chạy cho người đóng góp bên ngoài. Đừng vòng qua giới hạn này bằng `pull_request_target` nếu bạn chưa hiểu rủi ro của việc chạy code không đáng tin cậy cùng với secret của bạn.
 - **Chi phí.** Một pull request thông thường mất khoảng hai lần gọi model, và một lần push không làm thay đổi nội dung cần review sẽ bị bỏ qua. Chi phí thực tế phụ thuộc vào model và kích thước diff; comment tổng hợp có báo cáo chi phí.
-- **Ghim phiên bản.** `@v3` đi theo bản 3.x mới nhất. Để chạy lặp lại được, hãy ghim một tag cụ thể như `@v3.1.0`, hoặc một mã commit SHA đầy đủ.
+- **Ghim phiên bản.** `@v1` đi theo bản 1.x mới nhất. Để chạy lặp lại được, hãy ghim một tag cụ thể như `@v1.0.0`, hoặc một mã commit SHA đầy đủ.
 
 ## Quyền riêng tư và bảo mật
 
