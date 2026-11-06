@@ -39,5 +39,8 @@
 ## History (not current documentation)
 - [`specs/`](./specs/): design specs for v1.5/v1.6 features. Kept for background; the code and ADRs are authoritative.
 
+## Logo
+The logo files are in `docs/assets/logo`: SVG for light and dark backgrounds (the text is converted to outlines, so it renders without the font) and PNG exports of the badge. The badge alone is the avatar; `owlet-lens-avatar-1024.png` is a square version on a white background for social profiles.
+
 ## README images
 The images in the README (`docs/assets/*.png`) are rendered from the HTML in `docs/assets/src/`; each file starts with the Chrome command that produces it. `social-preview.png` is for GitHub's repository social preview (Settings, 1280x640) and has to be uploaded there by hand. The platform logos in `docs/assets/logos/` are the brands' own marks, used only to show compatibility.

@@ -1,4 +1,9 @@
-# Owlet Lens
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo/owlet-lens-dark.svg">
+    <img src="docs/assets/logo/owlet-lens.svg" alt="Owlet Lens" height="72">
+  </picture>
+</h1>
 
 **English** · [Tiếng Việt](./README.vi.md)
 
@@ -179,4 +184,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md). Documentation index: [docs/README.md](
 
 Licensed under the [Apache License 2.0](./LICENSE). Copyright 2026 Open Web Technology Vietnam LLC.
 
-Platform names and logos belong to their owners and are used only to show compatibility; see [NOTICE](./NOTICE).
+The name Owlet Lens and its logo are not covered by the license (see section 6 of the license). Platform names and logos belong to their owners and are used only to show compatibility; see [NOTICE](./NOTICE).

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Owlet Lens">
+  <rect x="10" y="10" width="180" height="180" rx="46" fill="#111827" stroke="#374151" stroke-width="4"/>
+  <path d="M62 44 Q44 44 44 64 L44 84 Q44 98 30 100 Q44 102 44 116 L44 136 Q44 156 62 156" fill="none" stroke="#e0493a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M138 44 Q156 44 156 64 L156 84 Q156 98 170 100 Q156 102 156 116 L156 136 Q156 156 138 156" fill="none" stroke="#e0493a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="84" cy="100" r="19" fill="#ffffff"/>
+  <circle cx="116" cy="100" r="19" fill="#ffffff"/>
+  <circle cx="84" cy="100" r="12" fill="#f2a93b"/>
+  <circle cx="116" cy="100" r="12" fill="#f2a93b"/>
+  <circle cx="84" cy="100" r="6" fill="#111827"/>
+  <circle cx="116" cy="100" r="6" fill="#111827"/>
+  <circle cx="80" cy="95" r="2.8" fill="#ffffff"/>
+  <circle cx="112" cy="95" r="2.8" fill="#ffffff"/>
+</svg>

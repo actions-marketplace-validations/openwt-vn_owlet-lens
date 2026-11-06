@@ -1,4 +1,9 @@
-# Owlet Lens
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo/owlet-lens-dark.svg">
+    <img src="docs/assets/logo/owlet-lens.svg" alt="Owlet Lens" height="72">
+  </picture>
+</h1>
 
 [English](./README.md) · **Tiếng Việt**
 
@@ -181,4 +186,4 @@ Các tài liệu chi tiết trong thư mục `docs/` hiện chỉ có bằng ti�
 
 Phát hành theo [Apache License 2.0](./LICENSE). Bản quyền 2026 Open Web Technology Vietnam LLC.
 
-Tên và logo của các nền tảng thuộc về chủ sở hữu của chúng và chỉ được dùng để thể hiện khả năng tương thích; xem [NOTICE](./NOTICE).
+Tên Owlet Lens và logo của dự án không nằm trong phạm vi giấy phép (xem điều 6 của giấy phép). Tên và logo của các nền tảng thuộc về chủ sở hữu của chúng và chỉ được dùng để thể hiện khả năng tương thích; xem [NOTICE](./NOTICE).

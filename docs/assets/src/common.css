@@ -5,6 +5,7 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:'Montserrat',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .dark{color:#fff;background:radial-gradient(900px 520px at 88% 8%,rgba(217,62,49,.38),transparent 60%),linear-gradient(160deg,var(--ink2),var(--ink) 70%)}
+.brand{display:block;height:84px;width:auto}
 .eyebrow{display:inline-block;padding:7px 18px;border:1px solid rgba(255,255,255,.28);border-radius:99px;font-size:15px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#ffb4ac}
 h1{margin:22px 0 20px;font-weight:800;letter-spacing:-.02em;line-height:1.08}
 .lead{color:#e5e7eb;line-height:1.55;margin:0}

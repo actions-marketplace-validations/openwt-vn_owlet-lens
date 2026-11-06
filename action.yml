@@ -3,7 +3,7 @@ description: 'Claude-powered AI code review for GitHub PRs'
 author: 'openwt-vn'
 branding:
   icon: 'eye'
-  color: 'purple'
+  color: 'red'
 inputs:
   anthropic-api-key:
     description: 'Anthropic API key (required if anthropic provider active for review or reply)'
