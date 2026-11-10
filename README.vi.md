@@ -236,6 +236,8 @@ Nội dung comment của bot hiện bằng tiếng Anh.
 
 - **Nó có thay thế review của con người không?** Không. Nó là lượt xem xét đầu tiên, bắt các vấn đề thông thường, để người review dành thời gian cho thiết kế và logic nghiệp vụ. Con người vẫn là người duyệt và merge.
 
+Thêm các câu hỏi về dữ liệu và quyền riêng tư, model chạy cục bộ, chi phí, ngôn ngữ, fork, strict mode: xem [FAQ](./docs/faq.md) (tiếng Anh).
+
 ## Tùy chỉnh
 
 Tùy chọn: thêm `ai-review.config.yaml` ở thư mục gốc của repo (model, ngưỡng mức độ, đường dẫn cần bỏ qua, chuẩn code). Hãy bắt đầu từ [file cấu hình mẫu](./examples/ai-review.config.yaml). Mọi khóa đều có trong [tài liệu cấu hình](./docs/config.md).
@@ -245,6 +247,39 @@ Tùy chọn: thêm `ai-review.config.yaml` ở thư mục gốc của repo (mode
 | Làm CI thất bại khi có phát hiện nghiêm trọng (`strict`) | [Tài liệu sử dụng](./docs/usage.md#strict-mode) |
 | Cho bot bật nút "Resolved" của GitHub | [Quyền của token](./docs/usage.md#limitations--token-permissions) |
 | Mọi input và output của Action, ghim phiên bản | [Tài liệu sử dụng](./docs/usage.md#inputs) |
+
+## Chế độ Team Lead (tùy chọn)
+
+Mặc định công cụ review mọi lần push. Khi bật TL gate, một pull request **không được AI review** cho đến khi một team lead mà bạn chỉ định bấm nút "bật AI" của nền tảng cho PR đó. Sau đó nó review mọi lần push như bình thường. Chế độ này giữ chi phí và độ ồn ở mức thấp ở những repo mà bạn muốn có người quyết định trước.
+
+```yaml
+# ai-review.config.yaml, trên nhánh ĐÍCH của pull request
+review:
+  tlGate:
+    enabled: true
+    leads: ["12345", "67890"]   # user id dạng số, không dùng username
+```
+
+Trên GitHub, nút đó là **Re-run all jobs** trên lần chạy review của PR; không cần sửa workflow. Công tắc và danh sách được đọc từ nhánh đích, nên một pull request không thể tự tắt gate của chính nó. Cách thiết lập theo nền tảng: [GitHub](./docs/tl-gate-github-setup.md) · [GitLab](./docs/tl-gate-gitlab-setup.md) · [Bitbucket](./docs/tl-gate-bitbucket-setup.md) · [Azure DevOps](./docs/tl-gate-azure-devops-setup.md) (tài liệu tiếng Anh). Thiết kế: [ADR-0014](./docs/adr/0014-tl-gate-reads-the-target-branch.md).
+
+## Dòng lệnh (CLI)
+
+Ngoài Action, bạn có thể chạy từ terminal hoặc bất kỳ CI nào. Gói chưa được đưa lên npm: hãy clone repo này rồi chạy:
+
+```bash
+npm install                       # Node 20.10 trở lên
+GITHUB_TOKEN=... ANTHROPIC_API_KEY=... GITHUB_REPOSITORY=owner/repo GITHUB_PR_NUMBER=42 \
+  npm run review -- --dry-run     # in ra những gì sẽ đăng, không đăng gì
+```
+
+| Lệnh | Tác dụng |
+|---|---|
+| `npm run review` | Review một pull request |
+| `npm run reply` | Đánh giá phản hồi của developer trong các thread của AI |
+| `npm run learn` | Đề xuất rule coding standards từ các phát hiện bị từ chối |
+| `npm run init` | Hỏi vài câu và tạo `ai-review.config.yaml` |
+
+Cờ hay dùng: `--dry-run`, `--strict` (exit code 8 khi có phát hiện mức chặn), `--config=<path>`, `--provider=<github|bitbucket|gitlab|azure-devops>`, `--force-review`. Biến môi trường cho các nền tảng khác, các cờ và exit code: [Usage reference](./docs/usage.md) (tiếng Anh).
 
 ## Đóng góp
 

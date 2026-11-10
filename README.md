@@ -230,7 +230,7 @@ Based on each project's public documentation, checked 10 November 2026.
 
 ## FAQ
 
-- **Does it replace human review?** No. It is a first pass that catches routine problems, so reviewers can spend their time on design and business logic. People still approve and merge.
+Common questions (data and privacy, local models, cost, languages, forks, strict mode): see the [FAQ](./docs/faq.md).
 
 ## Customising
 
@@ -241,6 +241,39 @@ Optional: add `ai-review.config.yaml` at the repo root (models, severity thresho
 | Fail CI on serious findings (`strict`) | [Usage reference](./docs/usage.md#strict-mode) |
 | Let the bot flip GitHub's "Resolved" button | [Token permissions](./docs/usage.md#limitations--token-permissions) |
 | All Action inputs and outputs, version pinning | [Usage reference](./docs/usage.md#inputs) |
+
+## Team lead gate (optional)
+
+By default the tool reviews every push. With the team lead gate (TL gate) on, a pull request gets **no AI review** until a team lead you name presses the platform's "turn the AI on" button for that PR. After that it reviews every push as usual. It keeps cost and noise down on repositories where you want a person to decide first.
+
+```yaml
+# ai-review.config.yaml, on the pull request's TARGET branch
+review:
+  tlGate:
+    enabled: true
+    leads: ["12345", "67890"]   # numeric user ids, not usernames
+```
+
+On GitHub the button is **Re-run all jobs** on the PR's review run; no workflow change is needed. The switch and the list are read from the target branch, so a pull request cannot turn its own gate off. Setup per platform: [GitHub](./docs/tl-gate-github-setup.md) · [GitLab](./docs/tl-gate-gitlab-setup.md) · [Bitbucket](./docs/tl-gate-bitbucket-setup.md) · [Azure DevOps](./docs/tl-gate-azure-devops-setup.md). Design: [ADR-0014](./docs/adr/0014-tl-gate-reads-the-target-branch.md).
+
+## Command line
+
+Besides the Action, you can run it from a terminal or any CI. It is not published to npm: clone this repository, then:
+
+```bash
+npm install                       # Node 20.10 or newer
+GITHUB_TOKEN=... ANTHROPIC_API_KEY=... GITHUB_REPOSITORY=owner/repo GITHUB_PR_NUMBER=42 \
+  npm run review -- --dry-run     # print what it would post, post nothing
+```
+
+| Command | What it does |
+|---|---|
+| `npm run review` | Review a pull request |
+| `npm run reply` | Judge developer replies in AI threads |
+| `npm run learn` | Propose coding-standards rules from declined findings |
+| `npm run init` | Ask a few questions and create `ai-review.config.yaml` |
+
+Useful flags: `--dry-run`, `--strict` (exit code 8 on blocking findings), `--config=<path>`, `--provider=<github|bitbucket|gitlab|azure-devops>`, `--force-review`. Environment variables for the other platforms, flags and exit codes: [Usage reference](./docs/usage.md).
 
 ## Contributing
 
