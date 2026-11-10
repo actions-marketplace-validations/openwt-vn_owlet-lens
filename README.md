@@ -5,13 +5,12 @@
   </picture>
 </h1>
 
-**English** · [Tiếng Việt](./README.vi.md)
-
 <p align="center">
   <img src="docs/assets/hero.png" alt="A review thread in a pull request: the tool flags a bug, the developer replies, and the thread is marked as fixed and closed" width="100%">
 </p>
 
 [![CI](https://github.com/openwt-vn/owlet-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/openwt-vn/owlet-lens/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@openwt-vn/owlet-lens)](https://www.npmjs.com/package/@openwt-vn/owlet-lens)
 ![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)
 ![Node 20.10+](https://img.shields.io/badge/node-%E2%89%A520.10-339933)
 ![Platforms](https://img.shields.io/badge/platforms-GitHub%20%C2%B7%20GitLab%20%C2%B7%20Bitbucket%20%C2%B7%20Azure%20DevOps-c43727)
@@ -21,6 +20,7 @@
   <a href="#other-platforms">GitLab · Bitbucket · Azure DevOps</a> ·
   <a href="#choose-an-llm-provider">LLM providers</a> ·
   <a href="#privacy-and-security">Privacy</a> ·
+  <a href="#command-line">CLI</a> ·
   <a href="#documentation">Documentation</a> ·
   <a href="#faq">FAQ</a>
 </p>
@@ -124,7 +124,7 @@ jobs:
 
 ## Other platforms
 
-The GitHub Action wraps a command-line tool with two commands, `review` and `reply`. On the other platforms a pipeline clones this repo and runs those commands with Node; the templates below do that. Each platform needs its own token plus one LLM key, and the tool detects the platform from the CI environment.
+The GitHub Action wraps a command-line tool with two commands, `review` and `reply`. On the other platforms a pipeline clones this repo and runs those commands with Node; the templates below do that. You can also install the tool from npm instead of cloning (see [Command line](#command-line)). Each platform needs its own token plus one LLM key, and the tool detects the platform from the CI environment.
 
 <details>
 <summary><b>GitLab</b> (GitLab.com and self-hosted)</summary>
@@ -258,22 +258,24 @@ On GitHub the button is **Re-run all jobs** on the PR's review run; no workflow 
 
 ## Command line
 
-Besides the Action, you can run it from a terminal or any CI. It is not published to npm: clone this repository, then:
+Besides the Action, you can run it from a terminal or any CI. It is on [npm](https://www.npmjs.com/package/@openwt-vn/owlet-lens) (Node 20.10 or newer):
 
 ```bash
-npm install                       # Node 20.10 or newer
+npm install -g @openwt-vn/owlet-lens
 GITHUB_TOKEN=... ANTHROPIC_API_KEY=... GITHUB_REPOSITORY=owner/repo GITHUB_PR_NUMBER=42 \
-  npm run review -- --dry-run     # print what it would post, post nothing
+  owlet-lens review --dry-run     # print what it would post, post nothing
 ```
+
+Or run it without installing: `npx @openwt-vn/owlet-lens review --dry-run`.
 
 | Command | What it does |
 |---|---|
-| `npm run review` | Review a pull request |
-| `npm run reply` | Judge developer replies in AI threads |
-| `npm run learn` | Propose coding-standards rules from declined findings |
-| `npm run init` | Ask a few questions and create `ai-review.config.yaml` |
+| `owlet-lens review` | Review a pull request |
+| `owlet-lens reply` | Judge developer replies in AI threads |
+| `owlet-lens learn` | Propose coding-standards rules from declined findings |
+| `owlet-lens init` | Ask a few questions and create `ai-review.config.yaml` |
 
-Useful flags: `--dry-run`, `--strict` (exit code 8 on blocking findings), `--config=<path>`, `--provider=<github|bitbucket|gitlab|azure-devops>`, `--force-review`. Environment variables for the other platforms, flags and exit codes: [Usage reference](./docs/usage.md).
+Useful flags: `--dry-run`, `--strict` (exit code 8 on blocking findings), `--config=<path>`, `--provider=<github|bitbucket|gitlab|azure-devops>`, `--force-review`. Environment variables for the other platforms, flags and exit codes: [Usage reference](./docs/usage.md). To work on the code from a clone instead, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Contributing
 
