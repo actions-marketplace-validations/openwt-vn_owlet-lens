@@ -16,6 +16,15 @@
 ![Node 20.10+](https://img.shields.io/badge/node-%E2%89%A520.10-339933)
 ![Platforms](https://img.shields.io/badge/platforms-GitHub%20%C2%B7%20GitLab%20%C2%B7%20Bitbucket%20%C2%B7%20Azure%20DevOps-c43727)
 
+<p align="center">
+  <a href="#quick-start-github">Quick start</a> ·
+  <a href="#other-platforms">GitLab · Bitbucket · Azure DevOps</a> ·
+  <a href="#choose-an-llm-provider">LLM providers</a> ·
+  <a href="#privacy-and-security">Privacy</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="#faq">FAQ</a>
+</p>
+
 AI code review for pull requests. It posts findings as inline review threads, reads developer replies, and closes threads that are fixed or declined. Runs on GitHub (this page), plus Bitbucket Cloud (Cloud only), GitLab ([setup](./docs/gitlab-setup.md)) and Azure DevOps ([setup](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops)).
 
 ## Why
@@ -80,7 +89,70 @@ jobs:
 
 Replies are read from comments **inside review threads** (`pull_request_review_comment`), not from the PR conversation tab.
 
+> [!TIP]
+> To also read replies from the conversation tab, add `issue_comment: { types: [created] }` under `on:` and replace the reply job's `if:` with:
+>
+> ```yaml
+> if: >-
+>   (github.event_name == 'pull_request_review_comment' && github.event.comment.user.type != 'Bot')
+>   || (github.event_name == 'issue_comment' && github.event.issue.pull_request != null)
+> ```
+>
+> This repo's own [workflow](./.github/workflows/ai-review.yml) adds a check that the commenter is a member of the repo.
+
 **3. Open a pull request.** Findings appear as review threads within a minute or two. Reply to a thread to discuss it.
+
+> [!NOTE]
+> Every Action input and output, the exit codes and version pinning are in the [usage reference](./docs/usage.md).
+
+<details>
+<summary><b>Shorter: call the reusable workflow</b></summary>
+
+Keep the `on:` block from step 2 and replace the two jobs with one call. It runs both the review and the reply job:
+
+```yaml
+jobs:
+  ai-review:
+    uses: openwt-vn/owlet-lens/.github/workflows/ai-review-reusable.yml@v1
+    with:
+      runner: '["ubuntu-latest"]'   # required; '["self-hosted"]' for your own runners
+    secrets: inherit
+```
+
+`runner` is a JSON list in a string because the workflow passes it to `runs-on`. It reads one LLM key secret (`ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY` or `MODELSTACK_API_KEY`) and the optional `AI_REVIEW_RESOLVE_TOKEN`; the list is at the top of [`ai-review-reusable.yml`](./.github/workflows/ai-review-reusable.yml).
+</details>
+
+## Other platforms
+
+The GitHub Action wraps a command-line tool with two commands, `review` and `reply`. On the other platforms a pipeline clones this repo and runs those commands with Node; the templates below do that. Each platform needs its own token plus one LLM key, and the tool detects the platform from the CI environment.
+
+<details>
+<summary><b>GitLab</b> (GitLab.com and self-hosted)</summary>
+
+Review and reply run on merge request pipelines; learn runs on a pipeline schedule. Get the template in one of two ways: copy [`examples/gitlab-ci.yml`](./examples/gitlab-ci.yml) into your project as `.gitlab-ci.yml`, or include it from a mirror of this repo on your GitLab (`include:` only reads projects on the same GitLab, so push a copy of this repo there first):
+
+```yaml
+include:
+  - project: '<group>/owlet-lens'
+    ref: main
+    file: '/examples/gitlab-ci.yml'
+```
+
+Either way, then set `AI_REVIEW_REPO` (the clone URL of your Owlet Lens mirror) and `AI_REVIEW_REF` (the tag to pin) in the template, add the CI/CD variables `ANTHROPIC_API_KEY` (or another LLM key) and `GITLAB_TOKEN` (`api` scope), and copy [`examples/ai-review.gitlab.yaml`](./examples/ai-review.gitlab.yaml) to `ai-review.config.yaml`. Full steps: [GitLab setup](./docs/gitlab-setup.md).
+</details>
+
+<details>
+<summary><b>Bitbucket Cloud</b></summary>
+
+Add a pull request pipeline step that runs `reply` and then `review` with `--provider=bitbucket`. Reply goes first so that the review sees the developers' latest answers. This repo's [`bitbucket-pipelines.yml`](./bitbucket-pipelines.yml) is a template with the install and run lines; it needs two secured repository variables, `AI_REVIEW_TOKEN` (an access token with `pullrequest:write`) and the LLM key named in your config (`DEEPSEEK_API_KEY` in the template). Bitbucket Pipelines has no comment trigger, so developer replies are read on the next push. Bitbucket Server and Data Center are not supported. Environment variables: [review provider](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops).
+</details>
+
+<details>
+<summary><b>Azure DevOps</b></summary>
+
+There is no pipeline template yet. In a pull request validation build, run the same two commands as the Bitbucket template with `--provider=azure-devops`, with a personal access token (PAT) in `AZURE_DEVOPS_TOKEN` or the pipeline's `System.AccessToken`, plus the LLM key named in your config (for example `ANTHROPIC_API_KEY`). The platform is detected on Azure Pipelines. Required variables and the `azure.*` config keys: [review provider](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops).
+</details>
+
 
 ## Choose an LLM provider
 
@@ -118,6 +190,19 @@ The tool sends your code to the LLM provider you choose, so decide with care.
 - **Fallback models** can route your code to another provider. Review every model you list.
 
 Details per provider: [LLM data policy](./docs/llm-data-policy.md). To report a vulnerability, see [SECURITY.md](./SECURITY.md).
+
+## Documentation
+
+| Topic | Read |
+|---|---|
+| Action inputs and outputs, exit codes, strict mode (fail CI on serious findings), token permissions, version pinning | [docs/usage.md](./docs/usage.md) |
+| Every `ai-review.config.yaml` key | [docs/config.md](./docs/config.md) |
+| What is sent to each LLM provider | [docs/llm-data-policy.md](./docs/llm-data-policy.md) |
+| GitLab setup | [docs/gitlab-setup.md](./docs/gitlab-setup.md) |
+| Team lead gate (optional): hold the AI back on a pull request until a named lead starts it, for teams that want a person to decide which PRs get reviewed | [GitHub](./docs/tl-gate-github-setup.md) · [GitLab](./docs/tl-gate-gitlab-setup.md) · [Bitbucket](./docs/tl-gate-bitbucket-setup.md) · [Azure DevOps](./docs/tl-gate-azure-devops-setup.md) |
+| Example configs and pipelines | [examples/](./examples/) |
+| Run it locally, code map, releasing | [CONTRIBUTING.md](./CONTRIBUTING.md) |
+| Full index, including architecture decisions | [docs/README.md](./docs/README.md) |
 
 ## How it compares
 
