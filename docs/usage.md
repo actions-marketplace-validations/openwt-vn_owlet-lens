@@ -118,7 +118,7 @@ Cache key shape: `ai-review-state-v1-<repoId>-pr-<prNum>-<runId>`. Restore uses 
 | `strict` | no | `false` | Exit non-zero (code 8) on blocking-severity findings |
 | `review-model` | no | (from config) | Override review model |
 | `reply-model` | no | (from config) | Override reply model; also sets the review-path reflection model |
-| `review-provider` | no | (from config) | Override review LLM provider (`anthropic` \| `gemini` \| `deepseek` \| `modelstack`); sets `AI_REVIEW_LLM_PROVIDER` |
+| `review-provider` | no | (from config) | Override review LLM provider (`anthropic` \| `gemini` \| `deepseek` \| `modelstack` \| `openai` \| `openrouter`); sets `AI_REVIEW_LLM_PROVIDER` |
 | `reply-provider` | no | (from config) | Override reply LLM provider; sets `AI_REPLY_LLM_PROVIDER` |
 
 ## Outputs
@@ -163,4 +163,4 @@ To enable the UI flag flip, supply a PAT with `repo` scope:
 | `UND_ERR_CONNECT_TIMEOUT` | no connection within the timeout | same as above |
 | `CERT_*`, `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, `SELF_SIGNED_CERT_IN_CHAIN` | TLS inspection / custom CA | set `NODE_EXTRA_CA_CERTS` |
 
-Model failover cannot help here: every model shares one endpoint. Test from the runner with `curl -sv <api-url>`.
+Model failover helps only when `fallbackModels` names a model on another provider (`<provider>:<model>`, [ADR-0021](./adr/0021-fallback-on-any-failure-across-providers.md)); models on the same provider share one endpoint. Test from the runner with `curl -sv <api-url>`.

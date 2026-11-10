@@ -5,6 +5,26 @@ const { Minimatch } = require('minimatch');
 const { ConfigError } = require('./errors.js');
 const { deepMerge } = require('./config-merge.js');
 const { assertHostAllowed, BUILTIN_LLM_HOSTS } = require('./endpoint-guard.js');
+const { validateOpenRouterConfig, warnUnusedOpenRouterModels } = require('./openrouter-config.js');
+const { parseModelRef } = require('./llm/model-ref.js');
+
+/**
+ * Providers other than the kind's own named by `<provider>:<model>` entries in
+ * `fallbackModels` (ADR-0021). Non-string entries are skipped here and
+ * rejected by the per-entry check further down.
+ *
+ * @param {any} kindCfg  merged.review or merged.reply
+ * @returns {Set<string>}
+ */
+function fallbackProviders(kindCfg) {
+  const out = new Set();
+  for (const m of Array.isArray(kindCfg.fallbackModels) ? kindCfg.fallbackModels : []) {
+    if (typeof m !== 'string') continue;
+    const { providerName } = parseModelRef(m, kindCfg.provider);
+    if (providerName !== kindCfg.provider) out.add(providerName);
+  }
+  return out;
+}
 
 /**
  * Validate and normalize a merged config, then resolve credentials from config or env.
@@ -35,12 +55,14 @@ function validateConfig({ merged, env, unresolvedByPath, onWarn }) {
     deepseek:   'auth.deepseekKey',
     modelstack: 'auth.modelstackKey',
     openai:     'auth.openaiKey',
+    openrouter: 'auth.openrouterKey',
   };
+  const EXPECTED_PROVIDERS = Object.keys(PROVIDER_AUTH_FIELD).join('|');
   for (const kind of ['review', 'reply']) {
     const p = merged[kind].provider;
     if (!PROVIDER_AUTH_FIELD[p]) {
       throw new ConfigError(
-        `Unknown ${kind}.provider: ${JSON.stringify(p)} (expected: anthropic|gemini|deepseek|modelstack|openai)`,
+        `Unknown ${kind}.provider: ${JSON.stringify(p)} (expected: ${EXPECTED_PROVIDERS})`,
       );
     }
   }
@@ -69,6 +91,7 @@ function validateConfig({ merged, env, unresolvedByPath, onWarn }) {
   if (effectiveProvider === 'github') requiredAuthFields.add('auth.token');
   for (const kind of ['review', 'reply']) {
     requiredAuthFields.add(PROVIDER_AUTH_FIELD[merged[kind].provider]);
+    for (const p of fallbackProviders(merged[kind])) requiredAuthFields.add(PROVIDER_AUTH_FIELD[p]);
   }
   for (const [cfgPath, vars] of Object.entries(unresolvedByPath)) {
     const msg = `Unresolved env var(s) ${vars.join(', ')} in config field '${cfgPath}'`;
@@ -106,6 +129,7 @@ function validateConfig({ merged, env, unresolvedByPath, onWarn }) {
   const deepseekKey    = merged.auth.deepseekKey    ?? env.DEEPSEEK_API_KEY    ?? null;
   const modelstackKey  = merged.auth.modelstackKey  ?? env.MODELSTACK_API_KEY  ?? null;
   const openaiKey      = merged.auth.openaiKey      ?? env.OPENAI_API_KEY      ?? null;
+  const openrouterKey  = merged.auth.openrouterKey  ?? env.OPENROUTER_API_KEY  ?? null;
   // Review-provider credentials and CI env are resolved by each provider's
   // constructor, not here (ADR-0012).
 
@@ -115,6 +139,7 @@ function validateConfig({ merged, env, unresolvedByPath, onWarn }) {
     deepseek:   { key: deepseekKey,   envName: 'DEEPSEEK_API_KEY',   authField: 'auth.deepseekKey' },
     modelstack: { key: modelstackKey, envName: 'MODELSTACK_API_KEY', authField: 'auth.modelstackKey' },
     openai:     { key: openaiKey,     envName: 'OPENAI_API_KEY',     authField: 'auth.openaiKey' },
+    openrouter: { key: openrouterKey, envName: 'OPENROUTER_API_KEY', authField: 'auth.openrouterKey' },
   };
 
   for (const kind of ['review', 'reply']) {
@@ -122,7 +147,7 @@ function validateConfig({ merged, env, unresolvedByPath, onWarn }) {
     const entry = KEY_BY_PROVIDER[providerName];
     if (!entry) {
       throw new ConfigError(
-        `Unknown ${kind}.provider: ${providerName} (expected: anthropic|gemini|deepseek|modelstack|openai)`,
+        `Unknown ${kind}.provider: ${providerName} (expected: ${EXPECTED_PROVIDERS})`,
       );
     }
     // openai allows empty string key for local models (Ollama, LM Studio)
@@ -131,7 +156,27 @@ function validateConfig({ merged, env, unresolvedByPath, onWarn }) {
         `${entry.envName} is required (${kind}.provider=${providerName}); set env or ${entry.authField} in config`,
       );
     }
+    // A cross-provider fallback needs its own key too: fail at load, not at
+    // failover time halfway through a review (ADR-0021).
+    // No empty-key exemption for openai here: `apiBaseUrl` applies to the
+    // kind's own provider only, so an openai fallback on another kind provider
+    // targets api.openai.com, which rejects an empty key. (`openai:` under
+    // provider: openai is the kind's own provider and never reaches this loop.)
+    for (const p of fallbackProviders(merged[kind])) {
+      const fb = KEY_BY_PROVIDER[p];
+      if (typeof fb.key !== 'string' || fb.key.trim() === '') {
+        const entry = String(merged[kind].fallbackModels.find((m) => typeof m === 'string' && parseModelRef(m, merged[kind].provider).providerName === p)).trim();
+        throw new ConfigError(
+          `${fb.envName} is required (${kind}.fallbackModels entry ${JSON.stringify(entry)} names provider ${p}); set env or ${fb.authField} in config. `
+          + `If this id belongs to ${kind}.provider (a gateway id), write it as ${JSON.stringify(`${merged[kind].provider}:${entry}`)}`,
+        );
+      }
+    }
   }
+
+  // Shape-checked on every run, even when openrouter is inactive (ADR-0020).
+  merged.openrouter = validateOpenRouterConfig(merged.openrouter);
+  warnUnusedOpenRouterModels(merged, onWarn);
 
   const validThresholds = new Set(['low', 'medium', 'high', 'critical']);
   const normalizedThreshold = String(merged.review.severityThreshold ?? '').trim().toLowerCase();
@@ -410,7 +455,7 @@ function validateConfig({ merged, env, unresolvedByPath, onWarn }) {
   }
   merged.review._codingStandards = normalized;
 
-  return deepMerge(merged, { auth: { anthropicKey, geminiKey, deepseekKey, modelstackKey, openaiKey } });
+  return deepMerge(merged, { auth: { anthropicKey, geminiKey, deepseekKey, modelstackKey, openaiKey, openrouterKey } });
 }
 
 module.exports = { validateConfig };
