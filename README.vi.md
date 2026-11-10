@@ -16,9 +16,7 @@
 ![Node 20.10+](https://img.shields.io/badge/node-%E2%89%A520.10-339933)
 ![Nền tảng](https://img.shields.io/badge/platforms-GitHub%20%C2%B7%20GitLab%20%C2%B7%20Bitbucket%20%C2%B7%20Azure%20DevOps-c43727)
 
-Công cụ review code bằng AI cho pull request. Tool đăng các phát hiện thành thread review ngay trên dòng code, đọc phản hồi của lập trình viên, và đóng những thread đã được sửa hoặc đã bị từ chối. Chạy trên GitHub (trang này), cùng Bitbucket Cloud, GitLab và Azure DevOps ([các nền tảng hỗ trợ](#các-nền-tảng-hỗ-trợ)).
-
-Được xây dựng và sử dụng tại OpenWT Vietnam.
+Công cụ review code bằng AI cho pull request. Tool đăng các phát hiện thành thread review ngay trên dòng code, đọc phản hồi của lập trình viên, và đóng những thread đã được sửa hoặc đã bị từ chối. Chạy trên GitHub (trang này), cùng Bitbucket Cloud (chỉ bản Cloud), GitLab ([cài đặt](./docs/gitlab-setup.md)) và Azure DevOps ([cài đặt](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops)).
 
 ## Vì sao dùng
 
@@ -129,40 +127,35 @@ Tool gửi code của bạn tới nhà cung cấp LLM mà bạn chọn, nên hã
 
 Chi tiết theo từng nhà cung cấp: [chính sách dữ liệu LLM](./docs/llm-data-policy.md). Để báo một lỗ hổng bảo mật, xem [SECURITY.md](./SECURITY.md) (bằng tiếng Anh).
 
-## Các nền tảng hỗ trợ
+## So sánh với các công cụ tương tự
 
-| Nền tảng | Ghi chú | Hướng dẫn |
-|---|---|---|
-| GitHub | GitHub Action, đầy đủ tính năng | trang này |
-| GitLab | GitLab.com và tự host, mẫu CI | [docs/gitlab-setup.md](./docs/gitlab-setup.md) |
-| Bitbucket Cloud | Chỉ bản Cloud; không hỗ trợ Server và Data Center | [Cài đặt nhà cung cấp](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops) |
-| Azure DevOps | Services và Server | [Cài đặt nhà cung cấp](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops) |
+Dựa trên tài liệu công khai của từng dự án, kiểm tra ngày 10/11/2026.
+
+| | Owlet Lens | [CodeRabbit](https://docs.coderabbit.ai/platforms/overview.md) | [PR-Agent](https://github.com/qodo-ai/pr-agent) | [Copilot code review](https://docs.github.com/en/copilot/concepts/agents/code-review) |
+|---|---|---|---|---|
+| Giấy phép | Apache-2.0 | Dịch vụ lưu trữ sẵn | MIT | Một phần của GitHub Copilot |
+| Chạy ở | CI của bạn | Cloud của họ; tự triển khai cho Enterprise | CLI, Action, Docker | GitHub |
+| Nền tảng | GitHub, GitLab, Bitbucket Cloud, Azure DevOps | GitHub, GitLab, Bitbucket, Azure DevOps | GitHub, GitLab, Bitbucket, Azure DevOps, Gitea | GitHub, Azure DevOps (preview) |
+| Dùng mô hình AI riêng | ✅ Kể cả mô hình cục bộ | ❌ | ✅ Kể cả mô hình cục bộ | ❌ |
+| Chi phí | Chỉ phần dùng LLM | Gói theo lập trình viên | Chỉ phần dùng LLM | Gói Copilot |
+| Đọc phản hồi, đóng thread đã sửa | ✅ | ❌ | ❌ | ❌ |
+| Học quy tắc từ phát hiện bị từ chối | ✅ | ❌ | ❌ | ❌ |
 
 ## Một lần chạy trông như thế nào
 
-<details>
-<summary>Ví dụ comment tổng hợp (số liệu minh họa)</summary>
+**Một phát hiện trên pull request thật.** Tool đăng mỗi phát hiện thành một thread review ngay trên dòng code liên quan, kèm mức độ nghiêm trọng và loại lỗi. Lập trình viên có thể trả lời trong thread hoặc đánh dấu đã giải quyết.
 
-```
-### [Owlet Lens] Summary
+![Một thread review trên pull request thật: bot chỉ ra một lỗi CRITICAL trên dòng code đã đổi trong e2e/run.ts và giải thích lý do](docs/assets/examples/finding-thread.png)
 
-PR: #42 - Add refund endpoint
-Findings: 3 new · 1 replied · 0 reopened · 1 closed
-Cost: $0.0812 (1 call(s))
-Severity: 1 HIGH · 2 MEDIUM
-Files: 6 reviewed
-```
+**Comment tổng hợp.** Bot giữ một comment tổng hợp cho mỗi pull request và cập nhật nó sau mỗi lần push: số phát hiện mới, đã trả lời, mở lại hoặc đóng, chi phí của lần chạy, số lượng theo mức độ nghiêm trọng và thời gian chạy.
 
-Bot giữ một comment tổng hợp cho mỗi pull request và cập nhật nó sau mỗi lần push. Mỗi phát hiện là một thread riêng trên đúng dòng code liên quan. Nội dung comment của bot hiện bằng tiếng Anh.
+![Comment tổng hợp của Owlet Lens trên cùng pull request: 1 phát hiện mới, chi phí $0.0087, 1 file được review, thời gian 190.2s](docs/assets/examples/summary-comment.png)
 
-</details>
+Nội dung comment của bot hiện bằng tiếng Anh.
 
 ## Câu hỏi thường gặp
 
 - **Nó có thay thế review của con người không?** Không. Nó là lượt xem xét đầu tiên, bắt các vấn đề thông thường, để người review dành thời gian cho thiết kế và logic nghiệp vụ. Con người vẫn là người duyệt và merge.
-- **Code của tôi có an toàn không?** Xem [Quyền riêng tư và bảo mật](#quyền-riêng-tư-và-bảo-mật): bạn chọn nhà cung cấp, các chuỗi giống secret được lọc, và chi tiết nằm trong [chính sách dữ liệu LLM](./docs/llm-data-policy.md).
-- **Tôi có dùng được mô hình cục bộ không?** Có. Mọi endpoint tương thích OpenAI đều dùng được, kể cả các mô hình cục bộ như Ollama ([tài liệu cấu hình](./docs/config.md#llm-providers)).
-- **Chi phí bao nhiêu?** Xem [Cần biết](#cần-biết). Comment tổng hợp cho biết chi phí của từng lần chạy.
 
 ## Tùy chỉnh
 
@@ -173,8 +166,6 @@ Tùy chọn: thêm `ai-review.config.yaml` ở thư mục gốc của repo (mode
 | Làm CI thất bại khi có phát hiện nghiêm trọng (`strict`) | [Tài liệu sử dụng](./docs/usage.md#strict-mode) |
 | Cho bot bật nút "Resolved" của GitHub | [Quyền của token](./docs/usage.md#limitations--token-permissions) |
 | Mọi input và output của Action, ghim phiên bản | [Tài liệu sử dụng](./docs/usage.md#inputs) |
-| Dùng LLM khác hoặc giảm nhiễu | [docs/config.md](./docs/config.md) |
-| Biết cái gì được gửi tới LLM | [Chính sách dữ liệu LLM](./docs/llm-data-policy.md) |
 
 ## Đóng góp
 
@@ -186,4 +177,4 @@ Các tài liệu chi tiết trong thư mục `docs/` hiện chỉ có bằng ti�
 
 Phát hành theo [Apache License 2.0](./LICENSE). Bản quyền 2026 Open Web Technology Vietnam LLC.
 
-Tên Owlet Lens và logo của dự án không nằm trong phạm vi giấy phép (xem điều 6 của giấy phép và [TRADEMARKS.md](./TRADEMARKS.md)). Tên và logo của các nền tảng thuộc về chủ sở hữu của chúng và chỉ được dùng để thể hiện khả năng tương thích; xem [NOTICE](./NOTICE).
+Tên Owlet Lens và logo của dự án không nằm trong phạm vi giấy phép: xem [TRADEMARKS.md](./TRADEMARKS.md) và [NOTICE](./NOTICE).

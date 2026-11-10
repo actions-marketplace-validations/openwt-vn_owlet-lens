@@ -16,9 +16,7 @@
 ![Node 20.10+](https://img.shields.io/badge/node-%E2%89%A520.10-339933)
 ![Platforms](https://img.shields.io/badge/platforms-GitHub%20%C2%B7%20GitLab%20%C2%B7%20Bitbucket%20%C2%B7%20Azure%20DevOps-c43727)
 
-AI code review for pull requests. It posts findings as inline review threads, reads developer replies, and closes threads that are fixed or declined. Runs on GitHub (this page), plus Bitbucket Cloud, GitLab and Azure DevOps ([supported platforms](#supported-platforms)).
-
-Built and used at OpenWT Vietnam.
+AI code review for pull requests. It posts findings as inline review threads, reads developer replies, and closes threads that are fixed or declined. Runs on GitHub (this page), plus Bitbucket Cloud (Cloud only), GitLab ([setup](./docs/gitlab-setup.md)) and Azure DevOps ([setup](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops)).
 
 ## Why
 
@@ -129,40 +127,33 @@ The tool sends your code to the LLM provider you choose, so decide with care.
 
 Details per provider: [LLM data policy](./docs/llm-data-policy.md). To report a vulnerability, see [SECURITY.md](./SECURITY.md).
 
-## Supported platforms
+## How it compares
 
-| Platform | Notes | Guide |
-|---|---|---|
-| GitHub | GitHub Action, full feature set | this page |
-| GitLab | GitLab.com and self-hosted, CI template | [docs/gitlab-setup.md](./docs/gitlab-setup.md) |
-| Bitbucket Cloud | Cloud only; Server and Data Center are not supported | [Provider setup](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops) |
-| Azure DevOps | Services and Server | [Provider setup](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops) |
+Based on each project's public documentation, checked 10 November 2026.
+
+| | Owlet Lens | [CodeRabbit](https://docs.coderabbit.ai/platforms/overview.md) | [PR-Agent](https://github.com/qodo-ai/pr-agent) | [Copilot code review](https://docs.github.com/en/copilot/concepts/agents/code-review) |
+|---|---|---|---|---|
+| License | Apache-2.0 | Hosted service | MIT | Part of GitHub Copilot |
+| Runs | In your CI | Their cloud; self-hosted for Enterprise | CLI, Action, Docker | GitHub |
+| Platforms | GitHub, GitLab, Bitbucket Cloud, Azure DevOps | GitHub, GitLab, Bitbucket, Azure DevOps | GitHub, GitLab, Bitbucket, Azure DevOps, Gitea | GitHub, Azure DevOps (preview) |
+| Your own AI model | ✅ Incl. local models | ❌ | ✅ Incl. local models | ❌ |
+| Cost | LLM usage only | Per-developer plans | LLM usage only | Copilot plan |
+| Reads replies, closes fixed threads | ✅ | ❌ | ❌ | ❌ |
+| Learns rules from declined findings | ✅ | ❌ | ❌ | ❌ |
 
 ## What a run looks like
 
-<details>
-<summary>Example summary comment (illustrative numbers)</summary>
+**A finding on a real pull request.** The tool posts each finding as a review thread on the line it is about, with a severity and a category. The developer can reply in the thread or resolve it.
 
-```
-### [Owlet Lens] Summary
+![A review thread on a real pull request: the bot flags a CRITICAL bug on the changed line in e2e/run.ts and explains why](docs/assets/examples/finding-thread.png)
 
-PR: #42 - Add refund endpoint
-Findings: 3 new · 1 replied · 0 reopened · 1 closed
-Cost: $0.0812 (1 call(s))
-Severity: 1 HIGH · 2 MEDIUM
-Files: 6 reviewed
-```
+**The summary comment.** The bot keeps one summary comment per pull request and updates it on every push: what was found, replied to, reopened or closed, the cost of the run, the severity counts and how long it took.
 
-The bot keeps one summary comment per pull request and updates it on every push. Each finding is its own thread on the line it is about.
-
-</details>
+![The Owlet Lens summary comment of the same pull request: 1 new finding, cost $0.0087, 1 file reviewed, duration 190.2s](docs/assets/examples/summary-comment.png)
 
 ## FAQ
 
 - **Does it replace human review?** No. It is a first pass that catches routine problems, so reviewers can spend their time on design and business logic. People still approve and merge.
-- **Is my code safe?** See [Privacy and security](#privacy-and-security): you choose the provider, secret-shaped text is scrubbed, and the details are in the [LLM data policy](./docs/llm-data-policy.md).
-- **Can I use a local model?** Yes. Any OpenAI-compatible endpoint works, including local ones such as Ollama ([configuration reference](./docs/config.md#llm-providers)).
-- **How much does it cost?** See [Good to know](#good-to-know). The summary comment shows the cost of each run.
 
 ## Customising
 
@@ -173,8 +164,6 @@ Optional: add `ai-review.config.yaml` at the repo root (models, severity thresho
 | Fail CI on serious findings (`strict`) | [Usage reference](./docs/usage.md#strict-mode) |
 | Let the bot flip GitHub's "Resolved" button | [Token permissions](./docs/usage.md#limitations--token-permissions) |
 | All Action inputs and outputs, version pinning | [Usage reference](./docs/usage.md#inputs) |
-| Use another LLM or tune noise | [docs/config.md](./docs/config.md) |
-| Know what is sent to the LLM | [LLM data policy](./docs/llm-data-policy.md) |
 
 ## Contributing
 
@@ -184,4 +173,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md). Documentation index: [docs/README.md](
 
 Licensed under the [Apache License 2.0](./LICENSE). Copyright 2026 Open Web Technology Vietnam LLC.
 
-The name Owlet Lens and its logo are not covered by the license (see section 6 of the license and [TRADEMARKS.md](./TRADEMARKS.md)). Platform names and logos belong to their owners and are used only to show compatibility; see [NOTICE](./NOTICE).
+The name Owlet Lens and its logo are not covered by the license: see [TRADEMARKS.md](./TRADEMARKS.md) and [NOTICE](./NOTICE).
