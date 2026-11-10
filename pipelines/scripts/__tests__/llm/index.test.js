@@ -91,7 +91,7 @@ test('makeLLMProvider: unknown name throws ConfigError', () => {
 });
 
 test('KNOWN_LLM_PROVIDERS list', () => {
-  assert.deepEqual([...KNOWN_LLM_PROVIDERS].sort(), ['anthropic', 'deepseek', 'gemini', 'modelstack', 'openai']);
+  assert.deepEqual([...KNOWN_LLM_PROVIDERS].sort(), ['anthropic', 'deepseek', 'gemini', 'modelstack', 'openai', 'openrouter']);
 });
 
 test('detectLLMProvider: accepts modelstack from config', () => {
@@ -296,4 +296,112 @@ test('makeLLMProvider: openai strips trailing slashes from apiBaseUrl', () => {
     kind: 'review',
   });
   assert.equal(p.apiUrl, 'https://openrouter.ai/api/v1/chat/completions');
+});
+
+test('makeLLMProvider: openrouter returns an adapter carrying the routing config', () => {
+  const routing = { dataCollection: 'deny', zdr: false, models: { 'a/b': { only: ['x'] } } };
+  const p = makeLLMProvider('openrouter', {
+    config: {
+      auth: { openrouterKey: 'or-k' },
+      review: { model: 'a/b' },
+      reply: { model: 'a/b' },
+      pricing: {},
+      openrouter: routing,
+    },
+    kind: 'review',
+  });
+  assert.equal(typeof p.call, 'function');
+  assert.equal(p.providerName, 'openrouter');
+  assert.deepEqual(p.routing, routing);
+});
+
+test('makeLLMProvider: openrouter missing key throws ConfigError', () => {
+  assert.throws(
+    () => makeLLMProvider('openrouter', {
+      config: { auth: { openrouterKey: null }, review: { model: 'a/b' }, reply: { model: 'a/b' }, pricing: {} },
+      kind: 'review',
+    }),
+    (e) => e instanceof ConfigError && /openrouterKey/.test(e.message),
+  );
+});
+
+test('detectLLMProvider: accepts openrouter from env', () => {
+  const p = detectLLMProvider({ env: { AI_REPLY_LLM_PROVIDER: 'openrouter' }, configValue: undefined, kind: 'reply' });
+  assert.equal(p, 'openrouter');
+});
+
+// --- Cross-provider fallback (ADR-0021) ---
+
+const { AnthropicProvider } = require('../../lib/llm/anthropic.js');
+const { DeepSeekProvider } = require('../../lib/llm/deepseek.js');
+
+function crossConfig(overrides = {}) {
+  return {
+    auth: { anthropicKey: 'ak', deepseekKey: 'dk', ...(overrides.auth ?? {}) },
+    review: { model: 'deepseek-v4-pro', fallbackModels: ['anthropic:claude-sonnet-5-5'], ...(overrides.review ?? {}) },
+    reply: { model: 'deepseek-flash' },
+    pricing: {},
+  };
+}
+
+test('cross-provider fallback: chain holds one adapter per provider, each one-try', () => {
+  const p = makeLLMProvider('deepseek', { config: crossConfig(), kind: 'review' });
+  assert.deepEqual(p.chain.map((t) => [t.providerName, t.model]), [
+    ['deepseek', 'deepseek-v4-pro'],
+    ['anthropic', 'claude-sonnet-5-5'],
+  ]);
+  assert.ok(p.chain[0].provider instanceof DeepSeekProvider);
+  assert.ok(p.chain[1].provider instanceof AnthropicProvider);
+  assert.equal(p.chain[0].provider.maxAttempts, 1);
+  assert.equal(p.chain[1].provider.maxAttempts, 1);
+  assert.equal(p.chain[1].provider.defaultModel, 'claude-sonnet-5-5');
+});
+
+test('cross-provider fallback: same-provider entries share one adapter', () => {
+  const p = makeLLMProvider('deepseek', {
+    config: crossConfig({ review: { fallbackModels: ['deepseek-flash', 'anthropic:claude-sonnet-5-5'] } }),
+    kind: 'review',
+  });
+  assert.equal(p.chain.length, 3);
+  assert.strictEqual(p.chain[0].provider, p.chain[1].provider);
+});
+
+test('cross-provider fallback: missing key for the fallback provider throws ConfigError', () => {
+  assert.throws(
+    () => makeLLMProvider('deepseek', { config: crossConfig({ auth: { anthropicKey: null } }), kind: 'review' }),
+    (e) => e instanceof ConfigError && /anthropicKey/.test(e.message),
+  );
+});
+
+test('cross-provider fallback: apiBaseUrl applies to the primary provider only', () => {
+  const p = makeLLMProvider('anthropic', {
+    config: {
+      auth: { anthropicKey: 'ak', deepseekKey: 'dk' },
+      review: { model: 'claude-opus-5-5', apiBaseUrl: 'https://eu.api.anthropic.com/v1/messages', fallbackModels: ['deepseek:deepseek-v4-pro'] },
+      reply: { model: 'x' },
+      pricing: {},
+    },
+    kind: 'review',
+  });
+  assert.equal(p.chain[0].provider.apiBaseUrl, 'https://eu.api.anthropic.com/v1/messages');
+  assert.notEqual(p.chain[1].provider.apiUrl ?? p.chain[1].provider.apiBaseUrl, 'https://eu.api.anthropic.com/v1/messages');
+});
+
+test('cross-provider fallback: prefix naming the primary provider dedupes against the primary', () => {
+  const p = makeLLMProvider('deepseek', {
+    config: crossConfig({ review: { fallbackModels: ['deepseek:deepseek-v4-pro'] } }),
+    kind: 'review',
+  });
+  assert.equal(p.chain, undefined, 'single-target chain is returned unwrapped');
+  assert.equal(p.maxAttempts, 3);
+});
+
+test('cross-provider fallback: openai fallback rejects an empty key (it always targets api.openai.com)', () => {
+  assert.throws(
+    () => makeLLMProvider('deepseek', {
+      config: crossConfig({ auth: { openaiKey: '' }, review: { fallbackModels: ['openai:gpt-4o'] } }),
+      kind: 'review',
+    }),
+    (e) => e instanceof ConfigError && /openaiKey/.test(e.message),
+  );
 });

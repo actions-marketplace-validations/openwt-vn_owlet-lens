@@ -5,20 +5,28 @@
   </picture>
 </h1>
 
-**English** · [Tiếng Việt](./README.vi.md)
-
 <p align="center">
   <img src="docs/assets/hero.png" alt="A review thread in a pull request: the tool flags a bug, the developer replies, and the thread is marked as fixed and closed" width="100%">
 </p>
 
 [![CI](https://github.com/openwt-vn/owlet-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/openwt-vn/owlet-lens/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@openwt-vn/owlet-lens)](https://www.npmjs.com/package/@openwt-vn/owlet-lens)
 ![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)
 ![Node 20.10+](https://img.shields.io/badge/node-%E2%89%A520.10-339933)
 ![Platforms](https://img.shields.io/badge/platforms-GitHub%20%C2%B7%20GitLab%20%C2%B7%20Bitbucket%20%C2%B7%20Azure%20DevOps-c43727)
 
-AI code review for pull requests. It posts findings as inline review threads, reads developer replies, and closes threads that are fixed or declined. Runs on GitHub (this page), plus Bitbucket Cloud, GitLab and Azure DevOps ([supported platforms](#supported-platforms)).
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#command-line">Command line</a> ·
+  <a href="#github-action">GitHub Action</a> ·
+  <a href="#other-platforms">GitLab · Bitbucket · Azure DevOps</a> ·
+  <a href="#choose-an-llm-provider">LLM providers</a> ·
+  <a href="#privacy-and-security">Privacy</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="#faq">FAQ</a>
+</p>
 
-Built and used at OpenWT Vietnam.
+AI code review for pull requests. It posts findings as inline review threads, reads developer replies, and closes threads that are fixed or declined. Runs on GitHub ([setup](./docs/github-action.md)), plus Bitbucket Cloud (Cloud only), GitLab ([setup](./docs/gitlab-setup.md)) and Azure DevOps ([setup](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops)).
 
 ## Why
 
@@ -37,54 +45,64 @@ Built and used at OpenWT Vietnam.
 
 No database: review state lives in hidden markers inside the comments, and learned rules live in a file in your repo.
 
-## Quick start (GitHub)
+## Quick start
 
-**1. Add a secret.** Repo → Settings → Secrets and variables → Actions → `ANTHROPIC_API_KEY` (other providers: [below](#choose-an-llm-provider)).
+### Command line
 
-**2. Add `.github/workflows/ai-review.yml`:**
+Run it from a terminal or from any CI. It is on [npm](https://www.npmjs.com/package/@openwt-vn/owlet-lens) (Node 20.10 or newer):
 
-```yaml
-name: Owlet Lens
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-  pull_request_review_comment:
-    types: [created]
-
-jobs:
-  review:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest   # or self-hosted
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }   # the review needs full history to diff
-      - uses: openwt-vn/owlet-lens@v1
-        with:
-          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          subcommand: review
-
-  reply:
-    if: github.event_name == 'pull_request_review_comment' && github.event.comment.user.type != 'Bot'
-    runs-on: ubuntu-latest   # or self-hosted
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: openwt-vn/owlet-lens@v1
-        with:
-          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          subcommand: reply
+```bash
+npm install -g @openwt-vn/owlet-lens
+GITHUB_TOKEN=... ANTHROPIC_API_KEY=... GITHUB_REPOSITORY=owner/repo GITHUB_PR_NUMBER=42 \
+  owlet-lens review --dry-run     # print what it would post, post nothing
 ```
 
-Replies are read from comments **inside review threads** (`pull_request_review_comment`), not from the PR conversation tab.
+Or run it without installing: `npx @openwt-vn/owlet-lens review --dry-run`.
 
-**3. Open a pull request.** Findings appear as review threads within a minute or two. Reply to a thread to discuss it.
+| Command | What it does |
+|---|---|
+| `owlet-lens review` | Review a pull request |
+| `owlet-lens reply` | Judge developer replies in AI threads |
+| `owlet-lens learn` | Propose coding-standards rules from declined findings |
+| `owlet-lens init` | Ask a few questions and create `ai-review.config.yaml` |
 
-**Try it without touching your pull requests.** Add `dry-run: 'true'` under `with:` and the run prints what it would post, without posting anything. Remove it when you are happy.
+Useful flags: `--dry-run`, `--strict` (exit code 8 on blocking findings), `--config=<path>`, `--provider=<github|bitbucket|gitlab|azure-devops>`, `--force-review`. Environment variables for the other platforms, flags and exit codes: [Usage reference](./docs/usage.md). To work on the code from a clone instead, see [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+### GitHub Action
+
+To review every pull request automatically, add one secret (`ANTHROPIC_API_KEY`; other providers: [below](#choose-an-llm-provider)) and a workflow that calls `openwt-vn/owlet-lens@v1`. Step by step, with the reusable workflow and reading replies from the conversation tab: [GitHub Action setup](./docs/github-action.md). For GitLab, Bitbucket Cloud and Azure DevOps, see [Other platforms](#other-platforms).
+
+## Other platforms
+
+The GitHub Action wraps a command-line tool with two commands, `review` and `reply`. On the other platforms a pipeline clones this repo and runs those commands with Node; the templates below do that. You can also install the tool from npm instead of cloning (see [Command line](#command-line)). Each platform needs its own token plus one LLM key, and the tool detects the platform from the CI environment.
+
+<details>
+<summary><b>GitLab</b> (GitLab.com and self-hosted)</summary>
+
+Review and reply run on merge request pipelines; learn runs on a pipeline schedule. Get the template in one of two ways: copy [`examples/gitlab-ci.yml`](./examples/gitlab-ci.yml) into your project as `.gitlab-ci.yml`, or include it from a mirror of this repo on your GitLab (`include:` only reads projects on the same GitLab, so push a copy of this repo there first):
+
+```yaml
+include:
+  - project: '<group>/owlet-lens'
+    ref: main
+    file: '/examples/gitlab-ci.yml'
+```
+
+Either way, then set `AI_REVIEW_REPO` (the clone URL of your Owlet Lens mirror) and `AI_REVIEW_REF` (the tag to pin) in the template, add the CI/CD variables `ANTHROPIC_API_KEY` (or another LLM key) and `GITLAB_TOKEN` (`api` scope), and copy [`examples/ai-review.gitlab.yaml`](./examples/ai-review.gitlab.yaml) to `ai-review.config.yaml`. Full steps: [GitLab setup](./docs/gitlab-setup.md).
+</details>
+
+<details>
+<summary><b>Bitbucket Cloud</b></summary>
+
+Add a pull request pipeline step that runs `reply` and then `review` with `--provider=bitbucket`. Reply goes first so that the review sees the developers' latest answers. This repo's [`bitbucket-pipelines.yml`](./bitbucket-pipelines.yml) is a template with the install and run lines; it needs two secured repository variables, `AI_REVIEW_TOKEN` (an access token with `pullrequest:write`) and the LLM key named in your config (`DEEPSEEK_API_KEY` in the template). Bitbucket Pipelines has no comment trigger, so developer replies are read on the next push. Bitbucket Server and Data Center are not supported. Environment variables: [review provider](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops).
+</details>
+
+<details>
+<summary><b>Azure DevOps</b></summary>
+
+There is no pipeline template yet. In a pull request validation build, run the same two commands as the Bitbucket template with `--provider=azure-devops`, with a personal access token (PAT) in `AZURE_DEVOPS_TOKEN` or the pipeline's `System.AccessToken`, plus the LLM key named in your config (for example `ANTHROPIC_API_KEY`). The platform is detected on Azure Pipelines. Required variables and the `azure.*` config keys: [review provider](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops).
+</details>
+
 
 ## Choose an LLM provider
 
@@ -96,6 +114,7 @@ Review and reply each pick a provider, so you can use a stronger model for revie
 | Gemini | `gemini-api-key` | Set `review-provider: gemini` |
 | DeepSeek | `deepseek-api-key` | Set `review-provider: deepseek` |
 | ModelStack (OpenAI-compatible gateway) | `modelstack-api-key` | No built-in price table: cost shows as `$0` unless you add a `pricing:` block |
+| OpenRouter (many models, one key) | `openrouter-api-key` | Private routing by default (`data_collection: deny`); per-model routing in the `openrouter:` config block. Cost comes from OpenRouter's billed amount |
 | Any OpenAI-compatible endpoint, including local models | config `review.apiBaseUrl` | The key may be empty for local models |
 
 To use a non-default provider, replace `anthropic-api-key` in **both** jobs and name the models:
@@ -112,12 +131,6 @@ To use a non-default provider, replace `anthropic-api-key` in **both** jobs and 
 
 A model name your provider does not accept makes every call fail. Fallback models, pricing and every other key are in the [configuration reference](./docs/config.md#llm-providers).
 
-## Good to know
-
-- **Pull requests from forks get no secrets.** GitHub does not pass repository secrets to workflows triggered by a fork, so the review will not run for external contributors. Do not work around this with `pull_request_target` unless you understand the risk of running untrusted code with your secrets.
-- **Cost.** A typical pull request takes about two model calls, and a push that does not change the reviewed content is skipped. The real cost depends on the model and the size of the diff; the summary comment reports it.
-- **Pinning.** `@v1` follows the latest 1.x release. For reproducible runs pin an exact tag such as `@v1.0.0`, or a full commit SHA.
-
 ## Privacy and security
 
 The tool sends your code to the LLM provider you choose, so decide with care.
@@ -129,40 +142,47 @@ The tool sends your code to the LLM provider you choose, so decide with care.
 
 Details per provider: [LLM data policy](./docs/llm-data-policy.md). To report a vulnerability, see [SECURITY.md](./SECURITY.md).
 
-## Supported platforms
+## Documentation
 
-| Platform | Notes | Guide |
-|---|---|---|
-| GitHub | GitHub Action, full feature set | this page |
-| GitLab | GitLab.com and self-hosted, CI template | [docs/gitlab-setup.md](./docs/gitlab-setup.md) |
-| Bitbucket Cloud | Cloud only; Server and Data Center are not supported | [Provider setup](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops) |
-| Azure DevOps | Services and Server | [Provider setup](./docs/usage.md#review-provider-github-bitbucket-gitlab-or-azure-devops) |
+| Topic | Read |
+|---|---|
+| GitHub Action setup: the workflow file, replies from the conversation tab, the reusable workflow | [docs/github-action.md](./docs/github-action.md) |
+| Action inputs and outputs, exit codes, strict mode (fail CI on serious findings), token permissions, version pinning | [docs/usage.md](./docs/usage.md) |
+| Every `ai-review.config.yaml` key | [docs/config.md](./docs/config.md) |
+| What is sent to each LLM provider | [docs/llm-data-policy.md](./docs/llm-data-policy.md) |
+| GitLab setup | [docs/gitlab-setup.md](./docs/gitlab-setup.md) |
+| Team lead gate (optional): hold the AI back on a pull request until a named lead starts it, for teams that want a person to decide which PRs get reviewed | [GitHub](./docs/tl-gate-github-setup.md) · [GitLab](./docs/tl-gate-gitlab-setup.md) · [Bitbucket](./docs/tl-gate-bitbucket-setup.md) · [Azure DevOps](./docs/tl-gate-azure-devops-setup.md) |
+| Example configs and pipelines | [examples/](./examples/) |
+| Run it locally, code map, releasing | [CONTRIBUTING.md](./CONTRIBUTING.md) |
+| Full index, including architecture decisions | [docs/README.md](./docs/README.md) |
+
+## How it compares
+
+Based on each project's public documentation, checked 10 November 2026.
+
+| | Owlet Lens | [CodeRabbit](https://docs.coderabbit.ai/platforms/overview.md) | [PR-Agent](https://github.com/qodo-ai/pr-agent) | [Copilot code review](https://docs.github.com/en/copilot/concepts/agents/code-review) |
+|---|---|---|---|---|
+| License | Apache-2.0 | Hosted service | MIT | Part of GitHub Copilot |
+| Runs | In your CI | Their cloud; self-hosted for Enterprise | CLI, Action, Docker | GitHub |
+| Platforms | GitHub, GitLab, Bitbucket Cloud, Azure DevOps | GitHub, GitLab, Bitbucket, Azure DevOps | GitHub, GitLab, Bitbucket, Azure DevOps, Gitea | GitHub, Azure DevOps (preview) |
+| Your own AI model | ✅ Incl. local models | ❌ | ✅ Incl. local models | ❌ |
+| Cost | LLM usage only | Per-developer plans | LLM usage only | Copilot plan |
+| Reads replies, closes fixed threads | ✅ | ❌ | ❌ | ❌ |
+| Learns rules from declined findings | ✅ | ❌ | ❌ | ❌ |
 
 ## What a run looks like
 
-<details>
-<summary>Example summary comment (illustrative numbers)</summary>
+**A finding on a real pull request.** The tool posts each finding as a review thread on the line it is about, with a severity and a category. The developer can reply in the thread or resolve it.
 
-```
-### [Owlet Lens] Summary
+![A review thread on a real pull request: the bot flags a CRITICAL bug on the changed line in e2e/run.ts and explains why](docs/assets/examples/finding-thread.png)
 
-PR: #42 - Add refund endpoint
-Findings: 3 new · 1 replied · 0 reopened · 1 closed
-Cost: $0.0812 (1 call(s))
-Severity: 1 HIGH · 2 MEDIUM
-Files: 6 reviewed
-```
+**The summary comment.** The bot keeps one summary comment per pull request and updates it on every push: what was found, replied to, reopened or closed, the cost of the run, the severity counts and how long it took.
 
-The bot keeps one summary comment per pull request and updates it on every push. Each finding is its own thread on the line it is about.
-
-</details>
+![The Owlet Lens summary comment of the same pull request: 1 new finding, cost $0.0087, 1 file reviewed, duration 190.2s](docs/assets/examples/summary-comment.png)
 
 ## FAQ
 
-- **Does it replace human review?** No. It is a first pass that catches routine problems, so reviewers can spend their time on design and business logic. People still approve and merge.
-- **Is my code safe?** See [Privacy and security](#privacy-and-security): you choose the provider, secret-shaped text is scrubbed, and the details are in the [LLM data policy](./docs/llm-data-policy.md).
-- **Can I use a local model?** Yes. Any OpenAI-compatible endpoint works, including local ones such as Ollama ([configuration reference](./docs/config.md#llm-providers)).
-- **How much does it cost?** See [Good to know](#good-to-know). The summary comment shows the cost of each run.
+Common questions (data and privacy, local models, cost, languages, forks, strict mode): see the [FAQ](./docs/faq.md).
 
 ## Customising
 
@@ -173,8 +193,20 @@ Optional: add `ai-review.config.yaml` at the repo root (models, severity thresho
 | Fail CI on serious findings (`strict`) | [Usage reference](./docs/usage.md#strict-mode) |
 | Let the bot flip GitHub's "Resolved" button | [Token permissions](./docs/usage.md#limitations--token-permissions) |
 | All Action inputs and outputs, version pinning | [Usage reference](./docs/usage.md#inputs) |
-| Use another LLM or tune noise | [docs/config.md](./docs/config.md) |
-| Know what is sent to the LLM | [LLM data policy](./docs/llm-data-policy.md) |
+
+## Team lead gate (optional)
+
+By default the tool reviews every push. With the team lead gate (TL gate) on, a pull request gets **no AI review** until a team lead you name presses the platform's "turn the AI on" button for that PR. After that it reviews every push as usual. It keeps cost and noise down on repositories where you want a person to decide first.
+
+```yaml
+# ai-review.config.yaml, on the pull request's TARGET branch
+review:
+  tlGate:
+    enabled: true
+    leads: ["12345", "67890"]   # numeric user ids, not usernames
+```
+
+On GitHub the button is **Re-run all jobs** on the PR's review run; no workflow change is needed. The switch and the list are read from the target branch, so a pull request cannot turn its own gate off. Setup per platform: [GitHub](./docs/tl-gate-github-setup.md) · [GitLab](./docs/tl-gate-gitlab-setup.md) · [Bitbucket](./docs/tl-gate-bitbucket-setup.md) · [Azure DevOps](./docs/tl-gate-azure-devops-setup.md). Design: [ADR-0014](./docs/adr/0014-tl-gate-reads-the-target-branch.md).
 
 ## Contributing
 
@@ -184,4 +216,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md). Documentation index: [docs/README.md](
 
 Licensed under the [Apache License 2.0](./LICENSE). Copyright 2026 Open Web Technology Vietnam LLC.
 
-The name Owlet Lens and its logo are not covered by the license (see section 6 of the license and [TRADEMARKS.md](./TRADEMARKS.md)). Platform names and logos belong to their owners and are used only to show compatibility; see [NOTICE](./NOTICE).
+The name Owlet Lens and its logo are not covered by the license: see [TRADEMARKS.md](./TRADEMARKS.md) and [NOTICE](./NOTICE).

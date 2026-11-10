@@ -45,9 +45,16 @@ The learn pipeline (run on schedule or manually) harvests wontfix thread items f
 
 - **Training**: ModelStack is a routing proxy — data handling depends on the upstream model provider.
 - **Retention**: ModelStack may log requests per their terms. The upstream provider's policy also applies.
-- **Failover**: The tool supports `review.fallbackModels` / `reply.fallbackModels`. On a retryable error, the request is re-routed to the next model in the list (a structured `level: warn` log with `fromModel`/`toModel`/`status` is emitted on each switch) — the next model may be served by a different upstream provider with different data guarantees. **Audit every entry in `fallbackModels` against this data-policy table**, not just the primary model.
+- **Failover**: The tool supports `review.fallbackModels` / `reply.fallbackModels`. On any failed attempt, the request moves to the next model in the list (a structured `level: warn` log with `fromProvider`/`fromModel`/`toProvider`/`toModel`/`status` is emitted on each switch). An entry such as `anthropic:claude-sonnet-4-6` sends the request to another LLM provider ([ADR-0021](./adr/0021-fallback-on-any-failure-across-providers.md)), and even a bare entry may be served by a different upstream provider with different data guarantees. **Audit every entry in `fallbackModels` against this data-policy table**, not just the primary model.
 - **Compliance**: Assess both ModelStack and the upstream model's policies.
 - **Docs**: https://modelstack.cc
+
+### OpenRouter (proxy)
+
+- **Training**: OpenRouter routes each request to one of several upstream providers. This tool sends `provider.data_collection: "deny"` by default, so only providers that do not store or train on prompts are eligible ([ADR-0020](./adr/0020-openrouter-privacy-default-routing.md)).
+- **Retention**: Set `openrouter.zdr: true` (globally or per model) to require zero-data-retention endpoints. It shrinks the provider pool.
+- **Compliance**: Pin providers per model with `openrouter.models["<id>"].only` and `allowFallbacks: false` when a specific upstream policy is required.
+- **Docs**: https://openrouter.ai/docs/features/privacy-and-logging
 
 ## Recommendations
 
