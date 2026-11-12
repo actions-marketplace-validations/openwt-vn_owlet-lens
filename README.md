@@ -47,9 +47,44 @@ No database: review state lives in hidden markers inside the comments, and learn
 
 ## Quick start
 
+Set up AI review on a repository in four steps. You need Node 20.10 or newer, and you run these in the root of the repository.
+
+**1. Install**
+
+```bash
+npm install -g @openwt-vn/owlet-lens
+```
+
+**2. Run `init` and answer the questions**
+
+```bash
+owlet-lens init
+```
+
+It asks for your platform (`github`, `gitlab`, `bitbucket` or `azure-devops`), your LLM provider and the models (press Enter to take the defaults), and a coding-standards file (optional). Answer `y` to "Create the ... pipeline file". It writes `ai-review.config.yaml` and the pipeline file: `.github/workflows/ai-review.yml` on GitHub, `.gitlab-ci.yml` on GitLab, `bitbucket-pipelines.yml` on Bitbucket Cloud. Azure DevOps has no template yet, so `init` points you to the [manual setup](#other-platforms). An existing pipeline file is never overwritten.
+
+**3. Add your LLM key to the CI settings**
+
+`init` does not put any key or token in the files, and it cannot set secrets for you. It prints the names to add. On GitHub, open Settings, Secrets and variables, Actions, and add `ANTHROPIC_API_KEY` (or the key of the provider you chose: [LLM providers](#choose-an-llm-provider)). GitLab and Bitbucket also need an access token; `init` prints which one.
+
+**4. Commit on a new branch, push, and open a pull request**
+
+`init` prints these commands at the end, with the file names filled in:
+
+```bash
+git checkout -b ci/owlet-lens
+git add ai-review.config.yaml .github/workflows/ai-review.yml
+git commit -m "ci: add Owlet Lens"
+git push -u origin ci/owlet-lens
+```
+
+Open a pull request from that branch and watch the review on it: findings appear there as comments within a minute or two. If the review fails, check that the variable from step 3 is set with exactly that name. If something else looks wrong, [open an issue](https://github.com/openwt-vn/owlet-lens/issues). Use the path of the pipeline file `init` created for your platform in the `git add` line.
+
+More on what `init` asks and creates: [`owlet-lens init`](./docs/usage.md#owlet-lens-init). The GitHub workflow in detail: [GitHub Action setup](./docs/github-action.md).
+
 ### Command line
 
-Run it from a terminal or from any CI. It is on [npm](https://www.npmjs.com/package/@openwt-vn/owlet-lens) (Node 20.10 or newer):
+Besides `init`, the tool can review one pull request from a terminal or from any CI. It is on [npm](https://www.npmjs.com/package/@openwt-vn/owlet-lens) (Node 20.10 or newer):
 
 ```bash
 npm install -g @openwt-vn/owlet-lens
@@ -64,7 +99,8 @@ Or run it without installing: `npx @openwt-vn/owlet-lens review --dry-run`.
 | `owlet-lens review` | Review a pull request |
 | `owlet-lens reply` | Judge developer replies in AI threads |
 | `owlet-lens learn` | Propose coding-standards rules from declined findings |
-| `owlet-lens init` | Ask a few questions and create `ai-review.config.yaml` |
+| `owlet-lens init` | Ask a few questions, create `ai-review.config.yaml` and, if you want, the pipeline file for your platform |
+| `owlet-lens install-hook` | Install a git pre-commit hook that runs the review before each commit (optional, needs environment variables) |
 
 Useful flags: `--dry-run`, `--strict` (exit code 8 on blocking findings), `--config=<path>`, `--provider=<github|bitbucket|gitlab|azure-devops>`, `--force-review`. Environment variables for the other platforms, flags and exit codes: [Usage reference](./docs/usage.md). To work on the code from a clone instead, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 

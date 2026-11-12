@@ -6,6 +6,7 @@ const path = require('node:path');
 const readline = require('node:readline');
 const { KNOWN_PROVIDERS } = require('./providers/index.js');
 const { KNOWN_LLM_PROVIDERS } = require('./llm/index.js');
+const { pipelineTemplate, writePipeline } = require('./init-pipelines.js');
 
 const MODEL_DEFAULTS = {
   anthropic:  { review: 'claude-sonnet-4-20250514', reply: 'claude-haiku-4-5-20251001' },
@@ -13,6 +14,7 @@ const MODEL_DEFAULTS = {
   gemini:     { review: 'gemini-2.5-flash',          reply: 'gemini-2.5-flash' },
   deepseek:   { review: 'deepseek-chat',             reply: 'deepseek-chat' },
   modelstack: { review: '',                          reply: '' },
+  openrouter: { review: '',                          reply: '' },
 };
 
 const KEY_ENV = {
@@ -21,6 +23,7 @@ const KEY_ENV = {
   gemini: 'GEMINI_API_KEY',
   deepseek: 'DEEPSEEK_API_KEY',
   modelstack: 'MODELSTACK_API_KEY',
+  openrouter: 'OPENROUTER_API_KEY',
 };
 
 const KEY_FIELD = {
@@ -29,6 +32,7 @@ const KEY_FIELD = {
   gemini: 'geminiKey',
   deepseek: 'deepseekKey',
   modelstack: 'modelstackKey',
+  openrouter: 'openrouterKey',
 };
 
 /**
@@ -38,6 +42,49 @@ const KEY_FIELD = {
  */
 function ask(rl, q) {
   return new Promise((resolve) => rl.question(q, resolve));
+}
+
+const ISSUES_URL = 'https://github.com/openwt-vn/owlet-lens/issues';
+const BRANCH = 'ci/owlet-lens';
+
+/**
+ * The text printed at the end of init: what to do next, in order.
+ * @param {{
+ *   provider: string,
+ *   keyEnv: string,
+ *   template: import('./init-pipelines.js').PipelineTemplate | null,
+ *   pipeline: { path: string, merged: boolean } | null,
+ * }} o
+ * @returns {string}
+ */
+function nextSteps({ provider, keyEnv, template, pipeline }) {
+  const variables = pipeline && template ? template.variables : [keyEnv];
+  const files = ['ai-review.config.yaml'];
+  if (pipeline) files.push(pipeline.path);
+
+  const lines = ['', 'Next steps:'];
+  let n = 1;
+  lines.push(`  ${n++}. Add to your CI settings (secrets or variables, with exactly these names): ${variables.join(', ')}`);
+  if (pipeline && pipeline.merged && template) {
+    lines.push(`  ${n++}. ${template.file} already exists and was left alone: merge ${pipeline.path} into it by hand`);
+  } else if (!pipeline) {
+    if (template) {
+      lines.push(`  ${n++}. Add the pipeline: run init again and answer y, or copy ${template.file} from https://github.com/openwt-vn/owlet-lens#other-platforms`);
+    } else {
+      lines.push(`  ${n++}. Add a pull request pipeline for ${provider} (no template yet): https://github.com/openwt-vn/owlet-lens#other-platforms`);
+    }
+  }
+  lines.push(`  ${n++}. Create a new branch:  git checkout -b ${BRANCH}`);
+  lines.push(`  ${n++}. Commit the change:    git add ${files.join(' ')} && git commit -m "ci: add Owlet Lens"`);
+  lines.push(`  ${n}. Push the branch, then open a pull request from it:  git push -u origin ${BRANCH}`);
+  lines.push('');
+  lines.push('Finally, watch the review on that pull request: the findings appear there as comments within a minute or two.');
+  lines.push(`If the review fails, check that ${variables.join(', ')} ${variables.length > 1 ? 'are' : 'is'} set in your CI settings, with exactly ${variables.length > 1 ? 'those names' : 'that name'}.`);
+  lines.push(`If something else looks wrong, please open an issue: ${ISSUES_URL}`);
+  lines.push('');
+  lines.push('Hint: to review before each commit as well, run `owlet-lens install-hook` to add a git pre-commit hook. Read its warning first: it needs environment variables, and a failing review blocks the commit.');
+  lines.push('');
+  return lines.join('\n');
 }
 
 /**
@@ -106,38 +153,18 @@ async function runInit(opts = {}) {
 
     const codingStandards = (await q('? Coding standards file path: (leave empty to skip) ')).trim();
 
-    let hookInstalled = false;
-    let isGitRepo = false;
-    try {
-      fs.statSync(path.join(cwd, '.git'));
-      isGitRepo = true;
-    } catch { /* not a git repo */ }
-
-    if (isGitRepo) {
-      const installHook = (await q('? Install git pre-commit hook? (y/n) ')).trim().toLowerCase();
-      if (installHook === 'y') {
-        const hooksDir = path.join(cwd, '.githooks');
-        if (!fs.existsSync(hooksDir)) fs.mkdirSync(hooksDir, { recursive: true });
-        const hookContent = '#!/bin/sh\nnode pipelines/scripts/ai-review.js review --dry-run\n';
-        const hookPath = path.join(hooksDir, 'pre-commit');
-        fs.writeFileSync(hookPath, hookContent, { mode: 0o755 });
-        try { fs.chmodSync(hookPath, 0o755); } catch { /* Windows */ }
-        try {
-          const { execSync } = require('node:child_process');
-          execSync('git config core.hooksPath .githooks', { cwd });
-          hookInstalled = true;
-        } catch {
-          stdout.write('  Warning: could not set core.hooksPath — run manually: git config core.hooksPath .githooks\n');
-        }
-      }
-    } else {
-      stdout.write('  Not a git repository — skipping hook installation\n');
-    }
-
     const keyField = KEY_FIELD[llmProvider] || 'anthropicKey';
     const keyEnv = KEY_ENV[llmProvider] || 'ANTHROPIC_API_KEY';
 
-    let configContent = `# ai-review.config.yaml — generated by \`ai-review init\`\n\n`;
+    const template = pipelineTemplate(provider, keyEnv);
+    /** @type {{ path: string, merged: boolean } | null} */
+    let pipeline = null;
+    if (template) {
+      const createPipeline = (await q(`? Create the ${provider} pipeline file (${template.file})? (y/n) `)).trim().toLowerCase();
+      if (createPipeline === 'y') pipeline = writePipeline(cwd, template);
+    }
+
+    let configContent = `# ai-review.config.yaml — generated by \`owlet-lens init\`\n\n`;
     configContent += `provider: ${provider}\n\n`;
     configContent += `review:\n`;
     configContent += `  provider: ${llmProvider}\n`;
@@ -153,15 +180,12 @@ async function runInit(opts = {}) {
 
     fs.writeFileSync(configPath, configContent, 'utf8');
     stdout.write(`\n✓ Created ai-review.config.yaml\n`);
-    if (hookInstalled) {
-      stdout.write('✓ Installed .githooks/pre-commit\n');
-      stdout.write('✓ Set git core.hooksPath to .githooks\n');
+
+    if (pipeline) {
+      stdout.write(`✓ Created ${pipeline.path}\n`);
     }
 
-    stdout.write(`\nNext steps:\n`);
-    stdout.write(`  1. Add ${keyEnv} to your CI secrets\n`);
-    stdout.write(`  2. Copy the workflow file for your CI provider\n`);
-    stdout.write(`  3. Test locally: node pipelines/scripts/ai-review.js review --dry-run\n\n`);
+    stdout.write(nextSteps({ provider, keyEnv, template, pipeline }));
 
     return 0;
   } finally {

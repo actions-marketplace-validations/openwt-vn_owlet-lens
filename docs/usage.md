@@ -48,6 +48,38 @@ node pipelines/scripts/ai-review.js review [--config=path] [--provider=github]
 node pipelines/scripts/ai-review.js reply  [--config=path] [--provider=github]
 ```
 
+### `owlet-lens init`
+
+Run it in the root of your repository to set Owlet Lens up. It needs an interactive terminal and asks, in this order:
+
+1. Review provider (`github`, `bitbucket`, `gitlab`, `azure-devops`).
+2. LLM provider, review model and reply model. The model is required when the LLM provider has no default (`modelstack`, `openrouter`).
+3. Coding standards file path (optional).
+4. Whether to create the pipeline file for your platform.
+
+It writes `ai-review.config.yaml` (an existing one is backed up first) and, if you say yes to the last question, one pipeline file. It does not install a git hook: that is a separate command, [`owlet-lens install-hook`](#owlet-lens-install-hook).
+
+| Review provider | File created | Variables you add yourself |
+|---|---|---|
+| `github` | `.github/workflows/ai-review.yml` (calls the [reusable workflow](./github-action.md), pinned to the version of the CLI that wrote it) | your LLM key as a secret |
+| `gitlab` | `.gitlab-ci.yml` | your LLM key, `GITLAB_TOKEN` (`api` scope) |
+| `bitbucket` | `bitbucket-pipelines.yml` | your LLM key, `AI_REVIEW_TOKEN` (`pullrequest:write`) |
+| `azure-devops` | none: there is no template yet, init prints where to start | your LLM key, a PAT |
+
+`init` never overwrites a pipeline file that already exists. It writes the template next to it with a `.owlet-lens` suffix (for example `.gitlab-ci.yml.owlet-lens`) and tells you to merge it by hand. It also never sets secrets for you: it prints the names to add in your CI settings.
+
+When it finishes, `init` prints what to do next as four steps: add the variables it names to your CI settings, create a new branch (`ci/owlet-lens`), commit the files, and push the branch and open a pull request from it. Then it tells you to watch the review on that pull request, to check that those variables are set with exactly those names if the review fails, where to open an issue if something else looks wrong, and a hint about `owlet-lens install-hook`.
+
+The pipeline files are pinned to the version of the CLI that wrote them (for example `@v1.4.0` on GitHub, `npm install -g @openwt-vn/owlet-lens@1.4.0` on GitLab and Bitbucket), so they keep running that version until you change the tag. The GitLab and Bitbucket files do not include the team lead gate or the `learn` schedule; add those from [`examples/gitlab-ci.yml`](../examples/gitlab-ci.yml) and [`bitbucket-pipelines.yml`](../bitbucket-pipelines.yml) when you need them.
+
+### `owlet-lens install-hook`
+
+Installs a git pre-commit hook (`.githooks/pre-commit`) that runs `owlet-lens review --dry-run` before every commit, and sets `core.hooksPath` to `.githooks`. It is its own command, not part of `init`, because the hook blocks the commit whenever the review fails. The review needs the same environment variables as `owlet-lens review`: the token of your platform (for example `GITHUB_TOKEN`), the repository and pull request number (`GITHUB_REPOSITORY`, `GITHUB_PR_NUMBER`) and the key of your LLM provider. Without them the commit is blocked. The command explains this and asks before it changes anything.
+
+- Commit once without the hook: `git commit --no-verify`.
+- Remove the hook: delete `.githooks/pre-commit` and run `git config --unset core.hooksPath`.
+- It never overwrites an existing `.githooks/pre-commit`, and it leaves a `core.hooksPath` that points somewhere else alone.
+
 ## Strict mode
 
 Pass `--strict` to fail CI when the AI posts findings at or above `review.severityThreshold` (default `medium`). Exit code is `8` when triggered. The check stays red on every later push while such a thread is still open: it clears when the finding is fixed or a reply argues it to `wontfix`, not when someone presses Resolve ([ADR-0016](./adr/0016-strict-gate-counts-open-blocking-threads.md)).
